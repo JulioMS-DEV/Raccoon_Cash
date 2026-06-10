@@ -16,7 +16,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-@Entity
+@Entity(name = "FinancialTransaction")
 @Table(name = "transactions")
 public class Transaction {
     @Id

@@ -37,11 +37,20 @@ class AccountsViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
+            
+            // Cargar cuentas
             try {
                 _accounts.value = repository.getAccounts()
+            } catch (e: Exception) {
+                _error.value = "Error al conectar con cuentas."
+                e.printStackTrace()
+            }
+
+            // Cargar transacciones (Independiente para que un error 500 aquí no bloquee las cuentas)
+            try {
                 _transactions.value = repository.getTransactions()
             } catch (e: Exception) {
-                _error.value = "No se pudo conectar con la API. Revisa que el backend esté encendido."
+                // No bloqueamos la UI principal, pero registramos el error
                 e.printStackTrace()
             } finally {
                 _isLoading.value = false

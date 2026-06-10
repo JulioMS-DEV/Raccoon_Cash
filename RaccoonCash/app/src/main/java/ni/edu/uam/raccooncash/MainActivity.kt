@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ni.edu.uam.raccooncash.ui.accounts.AccountsScreen
 import ni.edu.uam.raccooncash.ui.accounts.AccountsViewModel
 import ni.edu.uam.raccooncash.ui.accounts.AddAccountScreen
+import ni.edu.uam.raccooncash.ui.settings.SettingsScreen
 import ni.edu.uam.raccooncash.ui.theme.RaccoonCashTheme
 import ni.edu.uam.raccooncash.ui.transactions.AddTransactionScreen
 import ni.edu.uam.raccooncash.ui.transactions.TransactionsViewModel
@@ -21,7 +22,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            RaccoonCashTheme {
+            var isDarkTheme by remember { mutableStateOf(true) }
+            RaccoonCashTheme(darkTheme = isDarkTheme) {
                 val accountsViewModel: AccountsViewModel = viewModel()
                 val transactionsViewModel: TransactionsViewModel = viewModel()
                 var currentScreen by remember { mutableStateOf("accounts_list") }
@@ -38,7 +40,8 @@ class MainActivity : ComponentActivity() {
                         onTransactionClick = { transaction ->
                             editingTransaction = transaction
                             currentScreen = "add_transaction"
-                        }
+                        },
+                        onSettingsClick = { currentScreen = "settings" }
                     )
                     "add_account" -> AddAccountScreen(
                         viewModel = accountsViewModel,
@@ -51,6 +54,11 @@ class MainActivity : ComponentActivity() {
                             currentScreen = "accounts_list"
                             accountsViewModel.loadAccounts() // Recargar datos al volver
                         }
+                    )
+                    "settings" -> SettingsScreen(
+                        isDarkTheme = isDarkTheme,
+                        onThemeChange = { isDarkTheme = it },
+                        onBack = { currentScreen = "accounts_list" }
                     )
                 }
             }
