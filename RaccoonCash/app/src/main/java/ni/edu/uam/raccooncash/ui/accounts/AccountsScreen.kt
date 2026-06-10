@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -30,7 +31,8 @@ fun AccountsScreen(
     viewModel: AccountsViewModel = viewModel(),
     onAddAccountClick: () -> Unit,
     onAddTransactionClick: () -> Unit,
-    onTransactionClick: (ni.edu.uam.raccooncash.data.model.TransactionResponse) -> Unit = {}
+    onTransactionClick: (ni.edu.uam.raccooncash.data.model.TransactionResponse) -> Unit = {},
+    onSettingsClick: () -> Unit
 ) {
     val accounts by viewModel.accounts.collectAsState()
     val transactions by viewModel.transactions.collectAsState()
@@ -42,6 +44,9 @@ fun AccountsScreen(
             TopAppBar(
                 title = { Text("Inicio", fontSize = 28.sp, fontWeight = FontWeight.Bold) },
                 actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(Icons.Default.Settings, contentDescription = "Configuración")
+                    }
                     IconButton(onClick = { viewModel.loadAccounts() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Recargar")
                     }
@@ -132,11 +137,20 @@ fun AccountsScreen(
             // Real Transactions List
             if (transactions.isEmpty() && !isLoading) {
                 item {
-                    Text(
-                        "No hay transacciones registradas.",
-                        modifier = Modifier.padding(16.dp),
-                        color = Color.Gray
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "No hay transacciones registradas.",
+                            color = Color.Gray
+                        )
+                        Text(
+                            "(O el servidor dio un error al cargarlas)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray.copy(alpha = 0.5f)
+                        )
+                    }
                 }
             } else {
                 items(transactions.sortedByDescending { it.date }) { transaction ->
