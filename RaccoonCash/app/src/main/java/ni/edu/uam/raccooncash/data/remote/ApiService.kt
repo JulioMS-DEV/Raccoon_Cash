@@ -36,4 +36,10 @@ interface ApiService {
     // Categories
     @GET("categories")
     suspend fun getCategories(): List<CategoryResponse>
+
+    @POST("categories")
+    suspend fun createCategory(@Body category: ni.edu.uam.raccooncash.data.model.CategoryRequest): CategoryResponse
+
+    @DELETE("categories/{id}")
+    suspend fun deleteCategory(@Path("id") id: Long): Response<Unit>
 }

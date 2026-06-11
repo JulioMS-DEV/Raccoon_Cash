@@ -88,6 +88,10 @@ class TransactionsViewModel : ViewModel() {
                     date = currentDateTime
                 )
                 repository.createTransaction(request)
+                
+                // Actualizar las cuentas inmediatamente después de la transacción
+                _accounts.value = repository.getAccounts()
+
                 _addTransactionSuccess.value = true
             } catch (e: retrofit2.HttpException) {
                 // ... (handling as before)
@@ -130,6 +134,10 @@ class TransactionsViewModel : ViewModel() {
                     date = currentDateTime
                 )
                 repository.updateTransaction(id, request)
+                
+                // Actualizar las cuentas inmediatamente después de la edición
+                _accounts.value = repository.getAccounts()
+
                 _addTransactionSuccess.value = true
             } catch (e: Exception) {
                 _error.value = "Error al actualizar la transacción."
@@ -145,9 +153,49 @@ class TransactionsViewModel : ViewModel() {
             _isLoading.value = true
             try {
                 repository.deleteTransaction(id)
+                
+                // Actualizar las cuentas inmediatamente después de eliminar
+                _accounts.value = repository.getAccounts()
+
                 _addTransactionSuccess.value = true
             } catch (e: Exception) {
                 _error.value = "Error al eliminar la transacción."
+                e.printStackTrace()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun createCategory(name: String, type: String, emoji: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val request = CategoryRequest(
+                    name = name,
+                    type = type,
+                    icon = emoji,
+                    color = "#7E57C2" // Default color
+                )
+                repository.createCategory(request)
+                loadInitialData() // Reload categories
+            } catch (e: Exception) {
+                _error.value = "Error al crear la categoría."
+                e.printStackTrace()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun deleteCategory(id: Long) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                repository.deleteCategory(id)
+                loadInitialData() // Reload categories
+            } catch (e: Exception) {
+                _error.value = "Error al eliminar la categoría."
                 e.printStackTrace()
             } finally {
                 _isLoading.value = false

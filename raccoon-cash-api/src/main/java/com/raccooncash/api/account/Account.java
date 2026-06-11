@@ -28,6 +28,8 @@ public class Account {
     @Column(nullable = false)
     private String currency;
 
+    private Integer decimalPrecision;
+
     private String color;
 
     @Column(nullable = false)
@@ -102,6 +104,14 @@ public class Account {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public Integer getDecimalPrecision() {
+        return decimalPrecision;
+    }
+
+    public void setDecimalPrecision(Integer decimalPrecision) {
+        this.decimalPrecision = decimalPrecision;
     }
 
     public String getColor() {

@@ -18,6 +18,8 @@ public class AccountRequest {
     @NotBlank(message = "La moneda es obligatoria")
     private String currency;
 
+    private Integer decimalPrecision;
+
     private String color;
 
     public String getName() {
@@ -50,6 +52,14 @@ public class AccountRequest {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public Integer getDecimalPrecision() {
+        return decimalPrecision;
+    }
+
+    public void setDecimalPrecision(Integer decimalPrecision) {
+        this.decimalPrecision = decimalPrecision;
     }
 
     public String getColor() {

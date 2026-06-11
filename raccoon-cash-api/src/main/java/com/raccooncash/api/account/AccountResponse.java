@@ -10,6 +10,7 @@ public class AccountResponse {
     private BigDecimal initialBalance;
     private BigDecimal currentBalance;
     private String currency;
+    private Integer decimalPrecision;
     private String color;
     private Boolean active;
     private LocalDateTime createdAt;
@@ -25,6 +26,7 @@ public class AccountResponse {
         this.initialBalance = account.getInitialBalance();
         this.currentBalance = account.getCurrentBalance();
         this.currency = account.getCurrency();
+        this.decimalPrecision = account.getDecimalPrecision();
         this.color = account.getColor();
         this.active = account.getActive();
         this.createdAt = account.getCreatedAt();
@@ -77,6 +79,14 @@ public class AccountResponse {
 
     public void setCurrency(String currency) {
         this.currency = currency;
+    }
+
+    public Integer getDecimalPrecision() {
+        return decimalPrecision;
+    }
+
+    public void setDecimalPrecision(Integer decimalPrecision) {
+        this.decimalPrecision = decimalPrecision;
     }
 
     public String getColor() {
