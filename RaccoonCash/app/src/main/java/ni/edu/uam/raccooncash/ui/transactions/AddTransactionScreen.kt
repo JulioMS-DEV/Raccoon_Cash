@@ -1,7 +1,9 @@
 package ni.edu.uam.raccooncash.ui.transactions
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -52,6 +54,7 @@ fun AddTransactionScreen(
     var selectedCategoryId by remember { mutableStateOf<Long?>(transactionToEdit?.categoryId ?: transactionToEdit?.category?.id) }
 
     var showCategorySheet by remember { mutableStateOf(false) }
+    var showAddCategoryDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
     val tabs = listOf("Gasto", "Ingreso", "Transferir")
@@ -101,13 +104,16 @@ fun AddTransactionScreen(
             }
 
             // Amount Input
+            val selectedAccount = accounts.find { it.id == selectedAccountId }
+            val currencySymbol = selectedAccount?.currency ?: "C$"
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.End
             ) {
                 Text(
-                    text = "C$",
+                    text = currencySymbol,
                     style = MaterialTheme.typography.headlineLarge,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -175,7 +181,7 @@ fun AddTransactionScreen(
             TextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("Descripción") },
+                label = { Text("Título") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -207,11 +213,11 @@ fun AddTransactionScreen(
                                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(getEmojiForCategory(selectedCategory?.name ?: transactionToEdit?.categoryName), fontSize = 24.sp)
+                            Text(getEmojiForCategory(selectedCategory?.name, selectedCategory?.icon), fontSize = 24.sp)
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(
-                            text = selectedCategory?.name ?: transactionToEdit?.categoryName ?: "Selecciona una categoría",
+                            text = selectedCategory?.name ?: "Selecciona una categoría",
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.weight(1f)
                         )
@@ -315,26 +321,105 @@ fun AddTransactionScreen(
                             onClick = {
                                 selectedCategoryId = category.id
                                 showCategorySheet = false
+                            },
+                            onLongClick = {
+                                viewModel.deleteCategory(category.id)
                             }
                         )
+                    }
+                    item {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .clickable { showAddCategoryDialog = true }
+                                .padding(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(60.dp)
+                                    .background(Color.Gray.copy(alpha = 0.1f), RoundedCornerShape(16.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Añadir Categoría")
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("Añadir", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
+
+    if (showAddCategoryDialog) {
+        var newCategoryName by remember { mutableStateOf("") }
+        var selectedEmoji by remember { mutableStateOf("📝") }
+        val emojis = listOf("🍴", "🥦", "🛍️", "🚕", "🍿", "🎁", "🌸", "✈️", "💼", "💊", "📚", "🏠", "💰", "💵", "🍺", "☕", "🎮", "🏋️", "🐶", "⛽")
+
+        AlertDialog(
+            onDismissRequest = { showAddCategoryDialog = false },
+            title = { Text("Nueva Categoría") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    TextField(
+                        value = newCategoryName,
+                        onValueChange = { newCategoryName = it },
+                        label = { Text("Nombre") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text("Selecciona un icono", style = MaterialTheme.typography.labelMedium)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(emojis) { emoji ->
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(if (selectedEmoji == emoji) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, CircleShape)
+                                    .clickable { selectedEmoji = emoji },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(emoji, fontSize = 24.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val type = if (selectedTab == 0) "EXPENSE" else "INCOME"
+                        viewModel.createCategory(newCategoryName, type, selectedEmoji)
+                        showAddCategoryDialog = false
+                    },
+                    enabled = newCategoryName.isNotBlank()
+                ) {
+                    Text("Crear")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddCategoryDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CategoryIconItem(
     category: CategoryResponse,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clickable { onClick() }
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(4.dp)
     ) {
         val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Gray.copy(alpha = 0.1f)
@@ -344,14 +429,16 @@ fun CategoryIconItem(
                 .background(backgroundColor, RoundedCornerShape(16.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Text(getEmojiForCategory(category.name), fontSize = 32.sp)
+            Text(getEmojiForCategory(category.name, category.icon), fontSize = 32.sp)
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = category.name,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
-            maxLines = 1
+            maxLines = 2,
+            minLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
     }
 }
@@ -376,7 +463,10 @@ fun AccountChip(
     }
 }
 
-fun getEmojiForCategory(categoryName: String?): String {
+fun getEmojiForCategory(categoryName: String?, serverIcon: String?): String {
+    // Si el servidor envía un icono que es un emoji, lo usamos directamente
+    if (serverIcon != null && serverIcon.length <= 2) return serverIcon
+    
     return when (categoryName?.lowercase()) {
         "comida", "restaurante" -> "🍴"
         "comestibles", "supermercado" -> "🥦"
@@ -387,11 +477,19 @@ fun getEmojiForCategory(categoryName: String?): String {
         "belleza" -> "🌸"
         "viajes" -> "✈️"
         "trabajo" -> "💼"
-        "salud", "medicamentos" -> "💊"
+        "salud", "medicamento", "medicamentos" -> "💊"
         "educación" -> "📚"
         "hogar" -> "🏠"
         "ahorro" -> "💰"
         "ingreso" -> "💵"
+        "tecnología" -> "💻"
+        "suscripciones" -> "📺"
+        "deudas" -> "💳"
+        "mascotas" -> "🐶"
+        "emergencias" -> "🚨"
+        "impuestos" -> "🏛️"
+        "otros" -> "📝"
+        "corrección de saldo" -> "⚖️"
         else -> "📝"
     }
 }

@@ -58,7 +58,7 @@ class AccountsViewModel : ViewModel() {
         }
     }
 
-    fun createAccount(name: String, balance: Double, currency: String, color: String) {
+    fun createAccount(name: String, balance: Double, currency: String, color: String, precision: Int) {
         viewModelScope.launch {
             _isLoading.value = true
             _addAccountSuccess.value = false
@@ -68,13 +68,39 @@ class AccountsViewModel : ViewModel() {
                     type = "BANK", // Defaulting to BANK for now as per logic
                     initialBalance = balance,
                     currency = currency,
-                    color = color
+                    color = color,
+                    decimalPrecision = precision
                 )
                 repository.createAccount(request)
                 _addAccountSuccess.value = true
                 loadAccounts()
             } catch (e: Exception) {
                 _error.value = "Error al crear la cuenta."
+                e.printStackTrace()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun updateAccount(id: Long, name: String, balance: Double, currency: String, color: String, precision: Int) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _addAccountSuccess.value = false
+            try {
+                val request = AccountRequest(
+                    name = name,
+                    type = "BANK",
+                    initialBalance = balance,
+                    currency = currency,
+                    color = color,
+                    decimalPrecision = precision
+                )
+                repository.updateAccount(id, request)
+                _addAccountSuccess.value = true
+                loadAccounts()
+            } catch (e: Exception) {
+                _error.value = "Error al actualizar la cuenta."
                 e.printStackTrace()
             } finally {
                 _isLoading.value = false
