@@ -5,5 +5,6 @@ data class AccountRequest(
     val type: String,
     val initialBalance: Double,
     val currency: String,
-    val color: String?
+    val color: String?,
+    val decimalPrecision: Int = 2
 )

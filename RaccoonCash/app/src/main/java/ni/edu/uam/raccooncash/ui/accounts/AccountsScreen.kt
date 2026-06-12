@@ -32,6 +32,7 @@ fun AccountsScreen(
     onAddAccountClick: () -> Unit,
     onAddTransactionClick: () -> Unit,
     onTransactionClick: (ni.edu.uam.raccooncash.data.model.TransactionResponse) -> Unit = {},
+    onAccountClick: (ni.edu.uam.raccooncash.data.model.AccountResponse) -> Unit = {},
     onSettingsClick: () -> Unit
 ) {
     val accounts by viewModel.accounts.collectAsState()
@@ -101,7 +102,10 @@ fun AccountsScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(accounts) { account ->
-                            AccountCard(account = account)
+                            AccountCard(
+                                account = account,
+                                onClick = { onAccountClick(account) }
+                            )
                         }
                     }
                 }
@@ -216,7 +220,7 @@ fun TransactionItem(
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = "$prefix C$${String.format("%.2f", transaction.amount)}",
+                text = "$prefix ${getCurrencySymbol(transaction)} ${String.format("%.2f", transaction.amount)}",
                 color = amountColor,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
@@ -230,6 +234,14 @@ fun TransactionItem(
             }
         }
     }
+}
+
+fun getCurrencySymbol(transaction: ni.edu.uam.raccooncash.data.model.TransactionResponse): String {
+    return transaction.accountName?.let { name ->
+        // This is a bit limited since we don't have the currency in the transaction response directly usually
+        // but we can try to infer or just use a default. Ideally the API should provide it.
+        "C$" 
+    } ?: "C$"
 }
 
 fun getEmojiForCategory(categoryName: String?): String {
@@ -253,7 +265,10 @@ fun getEmojiForCategory(categoryName: String?): String {
 }
 
 @Composable
-fun AccountCard(account: AccountResponse) {
+fun AccountCard(
+    account: AccountResponse,
+    onClick: () -> Unit
+) {
     val accountColor = try {
         Color(android.graphics.Color.parseColor(account.color ?: "#7E57C2"))
     } catch (e: Exception) {
@@ -263,7 +278,8 @@ fun AccountCard(account: AccountResponse) {
     Card(
         modifier = Modifier
             .width(160.dp)
-            .height(100.dp),
+            .height(100.dp)
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E222D)), // Dark card color
         border = androidx.compose.foundation.BorderStroke(1.dp, accountColor.copy(alpha = 0.5f))
@@ -301,7 +317,7 @@ fun AccountCard(account: AccountResponse) {
                         modifier = Modifier.padding(end = 4.dp)
                     )
                     Text(
-                        text = "${account.currency}${String.format("%.0f", account.currentBalance)}",
+                        text = "${account.currency}${String.format("%.${account.decimalPrecision ?: 2}f", account.currentBalance)}",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp

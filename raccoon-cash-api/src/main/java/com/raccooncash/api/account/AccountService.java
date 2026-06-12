@@ -36,6 +36,7 @@ public class AccountService {
         account.setInitialBalance(request.getInitialBalance());
         account.setCurrentBalance(request.getInitialBalance());
         account.setCurrency(request.getCurrency());
+        account.setDecimalPrecision(request.getDecimalPrecision());
         account.setColor(request.getColor());
         account.setActive(true);
 
@@ -52,6 +53,7 @@ public class AccountService {
         account.setType(request.getType());
         account.setInitialBalance(request.getInitialBalance());
         account.setCurrency(request.getCurrency());
+        account.setDecimalPrecision(request.getDecimalPrecision());
         account.setColor(request.getColor());
 
         Account updatedAccount = accountRepository.save(account);
