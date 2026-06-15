@@ -234,33 +234,6 @@ Run > Run app
 
 ---
 
-# 📱 Capturas de pantalla
-
-> Agrega aquí las imágenes de tu aplicación.
-
-## Pantalla principal
-
-```md
-![Home](images/home.png)
-```
-
-## Gestión de cuentas
-
-```md
-![Accounts](images/accounts.png)
-```
-
-## Transacciones
-
-```md
-![Transactions](images/transactions.png)
-```
-
-## Resumen mensual
-
-```md
-![Summary](images/summary.png)
-```
 
 ---
 
