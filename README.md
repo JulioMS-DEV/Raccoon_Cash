@@ -106,31 +106,6 @@ Implementación de:
 
 ---
 
-# 🏗️ Arquitectura del proyecto
-
-El proyecto implementa la arquitectura **MVVM**.
-
-```text
-┌──────────┐
-│   View   │
-└────┬─────┘
-     │
-     ▼
-┌──────────────┐
-│  ViewModel   │
-└────┬─────────┘
-     │
-     ▼
-┌──────────────┐
-│ Repository   │
-└────┬─────────┘
-     │
-     ▼
-┌──────────────┐
-│ API/Database │
-└──────────────┘
-```
-
 ## Beneficios de MVVM
 
 * Separación de responsabilidades.
