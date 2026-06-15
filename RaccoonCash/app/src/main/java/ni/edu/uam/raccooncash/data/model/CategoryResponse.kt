@@ -5,5 +5,7 @@ data class CategoryResponse(
     val name: String,
     val icon: String?,
     val color: String?,
-    val type: String // INCOME, EXPENSE
+    val type: String, // INCOME, EXPENSE
+    val parentCategoryId: Long? = null,
+    val subcategories: List<CategoryResponse>? = emptyList()
 )

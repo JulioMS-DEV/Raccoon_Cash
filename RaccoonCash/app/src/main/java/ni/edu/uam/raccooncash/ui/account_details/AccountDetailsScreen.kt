@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,6 +36,33 @@ fun AccountDetailsScreen(
     val totalIncome = accountTransactions.filter { it.type == "INCOME" || (it.type == "TRANSFER" && it.toAccountId == account.id) }.sumOf { it.amount }
     val totalExpense = accountTransactions.filter { it.type == "EXPENSE" || (it.type == "TRANSFER" && it.accountId == account.id) }.sumOf { it.amount }
 
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Eliminar cuenta") },
+            text = { Text("¿Estás seguro de que deseas eliminar esta cuenta? Esta acción no se puede deshacer y podría afectar el historial de transacciones.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteAccount(account.id)
+                        showDeleteDialog = false
+                        onBack()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -47,6 +75,13 @@ fun AccountDetailsScreen(
                 actions = {
                     IconButton(onClick = onEditAccount) {
                         Icon(Icons.Default.Edit, contentDescription = "Editar Cuenta")
+                    }
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Eliminar Cuenta",
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             )

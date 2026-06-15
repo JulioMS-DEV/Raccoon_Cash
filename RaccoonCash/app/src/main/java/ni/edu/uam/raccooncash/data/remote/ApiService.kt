@@ -40,6 +40,9 @@ interface ApiService {
     @POST("categories")
     suspend fun createCategory(@Body category: ni.edu.uam.raccooncash.data.model.CategoryRequest): CategoryResponse
 
+    @PUT("categories/{id}")
+    suspend fun updateCategory(@Path("id") id: Long, @Body category: ni.edu.uam.raccooncash.data.model.CategoryRequest): CategoryResponse
+
     @DELETE("categories/{id}")
     suspend fun deleteCategory(@Path("id") id: Long): Response<Unit>
 }

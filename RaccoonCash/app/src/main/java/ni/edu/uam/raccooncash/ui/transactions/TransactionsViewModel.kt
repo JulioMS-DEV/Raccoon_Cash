@@ -68,14 +68,15 @@ class TransactionsViewModel : ViewModel() {
         toAccountId: Long? = null,
         categoryId: Long? = null,
         description: String,
-        notes: String? = null
+        notes: String? = null,
+        dateTime: LocalDateTime = LocalDateTime.now()
     ) {
         viewModelScope.launch {
             _isLoading.value = true
             _addTransactionSuccess.value = false
             try {
                 val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
-                val currentDateTime = LocalDateTime.now().format(formatter)
+                val formattedDate = dateTime.format(formatter)
 
                 val request = TransactionRequest(
                     amount = amount,
@@ -85,7 +86,7 @@ class TransactionsViewModel : ViewModel() {
                     categoryId = categoryId,
                     description = description,
                     notes = notes,
-                    date = currentDateTime
+                    date = formattedDate
                 )
                 repository.createTransaction(request)
                 
@@ -114,14 +115,15 @@ class TransactionsViewModel : ViewModel() {
         toAccountId: Long? = null,
         categoryId: Long? = null,
         description: String,
-        notes: String? = null
+        notes: String? = null,
+        dateTime: LocalDateTime = LocalDateTime.now()
     ) {
         viewModelScope.launch {
             _isLoading.value = true
             _addTransactionSuccess.value = false
             try {
                 val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
-                val currentDateTime = LocalDateTime.now().format(formatter)
+                val formattedDate = dateTime.format(formatter)
 
                 val request = TransactionRequest(
                     amount = amount,
@@ -131,7 +133,7 @@ class TransactionsViewModel : ViewModel() {
                     categoryId = categoryId,
                     description = description,
                     notes = notes,
-                    date = currentDateTime
+                    date = formattedDate
                 )
                 repository.updateTransaction(id, request)
                 
@@ -167,7 +169,7 @@ class TransactionsViewModel : ViewModel() {
         }
     }
 
-    fun createCategory(name: String, type: String, emoji: String) {
+    fun createCategory(name: String, type: String, emoji: String, parentId: Long? = null) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -175,12 +177,35 @@ class TransactionsViewModel : ViewModel() {
                     name = name,
                     type = type,
                     icon = emoji,
-                    color = "#7E57C2" // Default color
+                    color = "#7E57C2", // Default color
+                    parentCategoryId = parentId
                 )
                 repository.createCategory(request)
                 loadInitialData() // Reload categories
             } catch (e: Exception) {
                 _error.value = "Error al crear la categoría."
+                e.printStackTrace()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun updateCategory(id: Long, name: String, type: String, emoji: String, color: String = "#7E57C2", parentId: Long? = null) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val request = CategoryRequest(
+                    name = name,
+                    type = type,
+                    icon = emoji,
+                    color = color,
+                    parentCategoryId = parentId
+                )
+                repository.updateCategory(id, request)
+                loadInitialData()
+            } catch (e: Exception) {
+                _error.value = "Error al actualizar la categoría."
                 e.printStackTrace()
             } finally {
                 _isLoading.value = false

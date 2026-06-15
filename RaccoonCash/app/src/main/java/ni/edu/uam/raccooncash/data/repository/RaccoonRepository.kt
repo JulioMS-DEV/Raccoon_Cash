@@ -30,5 +30,7 @@ class RaccoonRepository {
 
     suspend fun createCategory(request: ni.edu.uam.raccooncash.data.model.CategoryRequest) = apiService.createCategory(request)
 
+    suspend fun updateCategory(id: Long, request: ni.edu.uam.raccooncash.data.model.CategoryRequest) = apiService.updateCategory(id, request)
+
     suspend fun deleteCategory(id: Long) = apiService.deleteCategory(id)
 }
