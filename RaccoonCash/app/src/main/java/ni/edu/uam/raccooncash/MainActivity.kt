@@ -25,10 +25,16 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ni.edu.uam.raccooncash.data.model.AccountResponse
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
+import ni.edu.uam.raccooncash.data.model.SavingGoalResponse
 import ni.edu.uam.raccooncash.ui.account_details.AccountDetailsScreen
 import ni.edu.uam.raccooncash.ui.accounts.AccountsScreen
 import ni.edu.uam.raccooncash.ui.accounts.AccountsViewModel
 import ni.edu.uam.raccooncash.ui.accounts.AddAccountScreen
+import ni.edu.uam.raccooncash.ui.savings.AddGoalTransactionScreen
+import ni.edu.uam.raccooncash.ui.savings.AddSavingGoalScreen
+import ni.edu.uam.raccooncash.ui.savings.SavingGoalDetailsScreen
+import ni.edu.uam.raccooncash.ui.savings.SavingsScreen
+import ni.edu.uam.raccooncash.ui.savings.SavingsViewModel
 import ni.edu.uam.raccooncash.ui.settings.SettingsScreen
 import ni.edu.uam.raccooncash.ui.theme.RaccoonCashTheme
 import ni.edu.uam.raccooncash.ui.transactions.AddTransactionScreen
@@ -44,10 +50,14 @@ class MainActivity : ComponentActivity() {
             RaccoonCashTheme(darkTheme = isDarkTheme) {
                 val accountsViewModel: AccountsViewModel = viewModel()
                 val transactionsViewModel: TransactionsViewModel = viewModel()
+                val savingsViewModel: SavingsViewModel = viewModel()
                 var currentScreen by remember { mutableStateOf("inicio") }
                 var editingTransaction by remember { mutableStateOf<TransactionResponse?>(null) }
                 var editingAccount by remember { mutableStateOf<AccountResponse?>(null) }
                 var selectedAccountDetails by remember { mutableStateOf<AccountResponse?>(null) }
+                var selectedSavingGoal by remember { mutableStateOf<SavingGoalResponse?>(null) }
+                var editingSavingGoal by remember { mutableStateOf<SavingGoalResponse?>(null) }
+                var editingGoalTransaction by remember { mutableStateOf<TransactionResponse?>(null) }
 
                 Scaffold(
                     bottomBar = {
@@ -107,9 +117,63 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = "add_transaction"
                                 }
                             )
-                            "ahorro" -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("Pantalla de Ahorro (Próximamente)", color = Color.White)
+                            "ahorro" -> SavingsScreen(
+                                viewModel = savingsViewModel,
+                                onAddGoalClick = { 
+                                    editingSavingGoal = null
+                                    currentScreen = "add_saving_goal" 
+                                },
+                                onGoalClick = { goal ->
+                                    selectedSavingGoal = goal
+                                    currentScreen = "saving_goal_details"
+                                }
+                            )
+                            "saving_goal_details" -> selectedSavingGoal?.let { goal ->
+                                SavingGoalDetailsScreen(
+                                    goalId = goal.id,
+                                    viewModel = savingsViewModel,
+                                    accountsViewModel = accountsViewModel,
+                                    onAddTransaction = { 
+                                        editingGoalTransaction = null
+                                        currentScreen = "add_goal_transaction" 
+                                    },
+                                    onEditGoal = { 
+                                        editingSavingGoal = goal
+                                        currentScreen = "add_saving_goal" 
+                                    },
+                                    onTransactionClick = { transaction ->
+                                        editingGoalTransaction = transaction
+                                        currentScreen = "add_goal_transaction"
+                                    },
+                                    onBack = { currentScreen = "ahorro" }
+                                )
                             }
+                            "add_goal_transaction" -> selectedSavingGoal?.let { goal ->
+                                AddGoalTransactionScreen(
+                                    goal = goal,
+                                    savingsViewModel = savingsViewModel,
+                                    accountsViewModel = accountsViewModel,
+                                    transactionToEdit = editingGoalTransaction,
+                                    onBack = { currentScreen = "saving_goal_details" }
+                                )
+                            }
+                            "add_saving_goal" -> AddSavingGoalScreen(
+                                viewModel = savingsViewModel,
+                                goalToEdit = editingSavingGoal,
+                                onBack = { 
+                                    if (editingSavingGoal != null) {
+                                        // Si estábamos editando, regresamos a los detalles de esa meta específica
+                                        selectedSavingGoal = editingSavingGoal
+                                        currentScreen = "saving_goal_details"
+                                        savingsViewModel.loadSavingGoals()
+                                        savingsViewModel.loadGoalTransactions(editingSavingGoal!!.id)
+                                    } else {
+                                        // Si era una meta nueva, regresamos a la lista general
+                                        currentScreen = "ahorro"
+                                        savingsViewModel.loadSavingGoals()
+                                    }
+                                }
+                            )
                             "account_details" -> selectedAccountDetails?.let { account ->
                                 AccountDetailsScreen(
                                     account = account,
