@@ -18,6 +18,7 @@ public class TransaccionSolicitud {
     private Long destinationAccountId;
     private Long toAccountId;
     private Long categoryId;
+    private Long savingGoalId; // New field for saving goal ID
     private String notes;
     public String getDescription() {
         return description;
@@ -66,6 +67,13 @@ public class TransaccionSolicitud {
     }
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
+    }
+    // Getter and Setter for savingGoalId
+    public Long getSavingGoalId() {
+        return savingGoalId;
+    }
+    public void setSavingGoalId(Long savingGoalId) {
+        this.savingGoalId = savingGoalId;
     }
     public String getNotes() {
         return notes;

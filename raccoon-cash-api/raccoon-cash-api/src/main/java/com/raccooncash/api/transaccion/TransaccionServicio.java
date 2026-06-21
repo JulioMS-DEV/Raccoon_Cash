@@ -7,6 +7,8 @@ import com.raccooncash.api.categoria.CategoriaRepositorio;
 import com.raccooncash.api.categoria.TipoCategoria;
 import com.raccooncash.api.excepcion.SolicitudIncorrectaException;
 import com.raccooncash.api.excepcion.RecursoNoEncontradoException;
+import com.raccooncash.api.savinggoal.SavingGoal;
+import com.raccooncash.api.savinggoal.SavingGoalRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,13 +25,16 @@ public class TransaccionServicio {
     private final TransaccionRepositorio transactionRepository;
     private final CuentaRepositorio accountRepository;
     private final CategoriaRepositorio categoryRepository;
+    private final SavingGoalRepository savingGoalRepository; // Inject SavingGoalRepository
 
     public TransaccionServicio(TransaccionRepositorio transactionRepository,
                               CuentaRepositorio accountRepository,
-                              CategoriaRepositorio categoryRepository) {
+                              CategoriaRepositorio categoryRepository,
+                              SavingGoalRepository savingGoalRepository) {
         this.transactionRepository = transactionRepository;
         this.accountRepository = accountRepository;
         this.categoryRepository = categoryRepository;
+        this.savingGoalRepository = savingGoalRepository;
     }
 
     @Transactional(readOnly = true)
@@ -94,8 +99,15 @@ public class TransaccionServicio {
         Cuenta account = findActiveAccount(request.getAccountId(), "Cuenta no encontrada");
         Categoria category = null;
         Cuenta destinationAccount = null;
+        SavingGoal savingGoal = null; // Initialize savingGoal
 
-        if (request.getType() == TipoTransaccion.INCOME || request.getType() == TipoTransaccion.EXPENSE) {
+        if (request.getSavingGoalId() != null) {
+            savingGoal = savingGoalRepository.findById(request.getSavingGoalId())
+                    .orElseThrow(() -> new RecursoNoEncontradoException("SavingGoal no encontrada"));
+            // Removed the explicit check for EXPENSE type here.
+            // The transaction type will be stored as sent by the frontend (INCOME),
+            // but its effect on the account balance will be handled in applyTransactionEffect.
+        } else if (request.getType() == TipoTransaccion.INCOME || request.getType() == TipoTransaccion.EXPENSE) {
             if (request.getCategoryId() == null) {
                 throw new SolicitudIncorrectaException("La categoria es obligatoria para ingresos y gastos");
             }
@@ -117,10 +129,11 @@ public class TransaccionServicio {
         transaction.setDescription(request.getDescription());
         transaction.setAmount(request.getAmount());
         transaction.setDate(request.getDate() != null ? request.getDate() : LocalDateTime.now());
-        transaction.setType(request.getType());
+        transaction.setType(request.getType()); // Store the type as sent by the frontend (e.g., INCOME)
         transaction.setAccount(account);
         transaction.setToAccount(destinationAccount);
         transaction.setCategory(category);
+        transaction.setSavingGoal(savingGoal); // Set the saving goal
         transaction.setNotes(request.getNotes());
         transaction.setActive(true);
 
@@ -149,6 +162,14 @@ public class TransaccionServicio {
     }
 
     private void applyTransactionEffect(Transaccion transaction) {
+        // Special handling for saving goal transactions: always deduct from the account
+        if (transaction.getSavingGoal() != null) {
+            ensureSufficientBalance(transaction.getAccount(), transaction.getAmount());
+            transaction.getAccount().setCurrentBalance(currentBalance(transaction.getAccount()).subtract(transaction.getAmount()));
+            return; // Handled
+        }
+
+        // Original logic for other transaction types
         if (transaction.getType() == TipoTransaccion.INCOME) {
             transaction.getAccount().setCurrentBalance(currentBalance(transaction.getAccount()).add(transaction.getAmount()));
             return;
@@ -168,6 +189,13 @@ public class TransaccionServicio {
     }
 
     private void revertTransactionEffect(Transaccion transaction) {
+        // Special handling for saving goal transactions: always add back to the account
+        if (transaction.getSavingGoal() != null) {
+            transaction.getAccount().setCurrentBalance(currentBalance(transaction.getAccount()).add(transaction.getAmount()));
+            return; // Handled
+        }
+
+        // Original logic for other transaction types
         if (transaction.getType() == TipoTransaccion.INCOME) {
             transaction.getAccount().setCurrentBalance(currentBalance(transaction.getAccount()).subtract(transaction.getAmount()));
             return;
@@ -188,7 +216,7 @@ public class TransaccionServicio {
 
     private void ensureSufficientBalance(Cuenta account, BigDecimal amount) {
         if (currentBalance(account).compareTo(amount) < 0) {
-            throw new SolicitudIncorrectaException("Saldo insuficiente");
+            throw new SolicitudIncorrectaException("Saldo insuficiente en la cuenta " + account.getName());
         }
     }
 
@@ -216,5 +244,17 @@ public class TransaccionServicio {
     private Categoria findActiveCategory(Long id) {
         return categoryRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Categoria no encontrada"));
+    }
+
+    // New method to get transactions by saving goal ID
+    @Transactional(readOnly = true)
+    public List<TransaccionRespuesta> getTransactionsBySavingGoalId(Long savingGoalId) {
+        SavingGoal savingGoal = savingGoalRepository.findById(savingGoalId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("SavingGoal no encontrada"));
+
+        // Use the correct method name: findBySavingGoalAndActiveTrue
+        return transactionRepository.findBySavingGoalAndActiveTrue(savingGoal).stream()
+                .map(TransaccionRespuesta::new)
+                .collect(Collectors.toList());
     }
 }

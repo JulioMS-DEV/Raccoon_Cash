@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import ni.edu.uam.raccooncash.data.model.AccountResponse
 import ni.edu.uam.raccooncash.data.model.CategoryResponse
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
+import ni.edu.uam.raccooncash.ui.accounts.AccountChip
 import ni.edu.uam.raccooncash.ui.accounts.getEmojiForCategory
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -1047,44 +1048,6 @@ fun CategoryGridItem(category: CategoryResponse, onClick: () -> Unit) {
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(category.name, color = Color.White, fontSize = 12.sp, textAlign = TextAlign.Center, maxLines = 1)
-    }
-}
-
-@Composable
-fun AccountChip(
-    account: AccountResponse,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val accountColor = try {
-        Color(android.graphics.Color.parseColor(account.color ?: "#7E57C2"))
-    } catch (e: Exception) {
-        Color(0xFF7E57C2)
-    }
-
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) accountColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, accountColor) else null,
-        modifier = Modifier.padding(vertical = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(accountColor, CircleShape)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = account.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-            )
-        }
     }
 }
 

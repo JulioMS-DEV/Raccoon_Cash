@@ -33,4 +33,15 @@ class RaccoonRepository {
     suspend fun updateCategory(id: Long, request: ni.edu.uam.raccooncash.data.model.CategoryRequest) = apiService.updateCategory(id, request)
 
     suspend fun deleteCategory(id: Long) = apiService.deleteCategory(id)
+
+    // Saving Goals
+    suspend fun getSavingGoals() = apiService.getSavingGoals()
+
+    suspend fun createSavingGoal(request: SavingGoalRequest) = apiService.createSavingGoal(request)
+
+    suspend fun updateSavingGoal(id: Long, request: SavingGoalRequest) = apiService.updateSavingGoal(id, request)
+
+    suspend fun deleteSavingGoal(id: Long) = apiService.deleteSavingGoal(id)
+
+    suspend fun getSavingGoalTransactions(id: Long) = apiService.getSavingGoalTransactions(id)
 }
