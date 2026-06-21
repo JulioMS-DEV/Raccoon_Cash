@@ -45,4 +45,20 @@ interface ApiService {
 
     @DELETE("categories/{id}")
     suspend fun deleteCategory(@Path("id") id: Long): Response<Unit>
+
+    // Saving Goals
+    @GET("saving-goals")
+    suspend fun getSavingGoals(): List<SavingGoalResponse>
+
+    @POST("saving-goals")
+    suspend fun createSavingGoal(@Body request: SavingGoalRequest): SavingGoalResponse
+
+    @PUT("saving-goals/{id}")
+    suspend fun updateSavingGoal(@Path("id") id: Long, @Body request: SavingGoalRequest): SavingGoalResponse
+
+    @DELETE("saving-goals/{id}")
+    suspend fun deleteSavingGoal(@Path("id") id: Long): Response<Unit>
+
+    @GET("saving-goals/{id}/transactions")
+    suspend fun getSavingGoalTransactions(@Path("id") id: Long): List<TransactionResponse>
 }

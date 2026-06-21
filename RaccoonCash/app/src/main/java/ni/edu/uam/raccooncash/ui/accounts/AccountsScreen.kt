@@ -170,9 +170,8 @@ fun AccountsScreen(
                             if (dailySum != 0.0) {
                                 Text(
                                     text = "${if (dailySum > 0) "+" else ""}C$${String.format("%.2f", dailySum)}",
-                                    color = if (dailySum > 0) Color(0xFFA5D6A7) else Color(0xFFEF9A9A),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
+                                    color = Color.Gray,
+                                    fontSize = 14.sp
                                 )
                             }
                         }
@@ -424,8 +423,9 @@ fun TransactionItem(
     allAccounts: List<AccountResponse> = emptyList(),
     onClick: () -> Unit
 ) {
+    val isSaving = transaction.description.startsWith("Ahorro para", ignoreCase = true)
     val isExpense = transaction.type == "EXPENSE"
-    val isTransfer = transaction.type == "TRANSFER"
+    val isTransfer = transaction.type == "TRANSFER" || isSaving
     
     val category = transaction.category ?: allCategories.find { it.id == transaction.categoryId }
     val parentCategory = if (category?.parentCategoryId != null && category.parentCategoryId != 0L) {
@@ -588,5 +588,43 @@ fun getEmojiForCategory(categoryName: String?, serverIcon: String?): String {
         "otros" -> "📝"
         "corrección de saldo" -> "⚖️"
         else -> "📝"
+    }
+}
+
+@Composable
+fun AccountChip(
+    account: ni.edu.uam.raccooncash.data.model.AccountResponse,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val accountColor = try {
+        Color(android.graphics.Color.parseColor(account.color ?: "#7E57C2"))
+    } catch (e: Exception) {
+        Color(0xFF7E57C2)
+    }
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = if (isSelected) accountColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, accountColor) else null,
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(accountColor, CircleShape)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = account.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
+        }
     }
 }

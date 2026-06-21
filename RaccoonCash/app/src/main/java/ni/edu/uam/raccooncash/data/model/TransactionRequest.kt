@@ -8,5 +8,6 @@ data class TransactionRequest(
     val categoryId: Long? = null,
     val description: String,
     val notes: String? = null,
-    val date: String
+    val date: String,
+    val savingGoalId: Long? = null
 )

@@ -1,6 +1,7 @@
 package com.raccooncash.api.transaccion;
 import com.raccooncash.api.cuenta.Cuenta;
 import com.raccooncash.api.categoria.Categoria;
+import com.raccooncash.api.savinggoal.SavingGoal; // Import SavingGoal
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -40,6 +41,9 @@ public class Transaccion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Categoria category;
+    @ManyToOne(fetch = FetchType.LAZY) // Many transactions can belong to one saving goal
+    @JoinColumn(name = "saving_goal_id") // Optional, so nullable by default
+    private SavingGoal savingGoal; // New field for saving goal
     private String notes;
     private Boolean active = true;
     private LocalDateTime createdAt;
@@ -106,6 +110,13 @@ public class Transaccion {
     }
     public void setCategory(Categoria category) {
         this.category = category;
+    }
+    // Getter and Setter for savingGoal
+    public SavingGoal getSavingGoal() {
+        return savingGoal;
+    }
+    public void setSavingGoal(SavingGoal savingGoal) {
+        this.savingGoal = savingGoal;
     }
     public String getNotes() {
         return notes;

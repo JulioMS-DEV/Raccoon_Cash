@@ -15,6 +15,7 @@ public class TransaccionRespuesta {
     private String toAccountName;
     private Long categoryId;
     private String categoryName;
+    private Long savingGoalId; // New field for saving goal ID
     private String notes;
     private Boolean active;
     private LocalDateTime createdAt;
@@ -42,6 +43,9 @@ public class TransaccionRespuesta {
         if (transaction.getCategory() != null) {
             this.categoryId = transaction.getCategory().getId();
             this.categoryName = transaction.getCategory().getName();
+        }
+        if (transaction.getSavingGoal() != null) { // Set savingGoalId if present
+            this.savingGoalId = transaction.getSavingGoal().getId();
         }
     }
     public Long getId() {
@@ -121,6 +125,13 @@ public class TransaccionRespuesta {
     }
     public void setCategoryName(String categoryName) {
         this.categoryName = categoryName;
+    }
+    // Getter and Setter for savingGoalId
+    public Long getSavingGoalId() {
+        return savingGoalId;
+    }
+    public void setSavingGoalId(Long savingGoalId) {
+        this.savingGoalId = savingGoalId;
     }
     public String getNotes() {
         return notes;
