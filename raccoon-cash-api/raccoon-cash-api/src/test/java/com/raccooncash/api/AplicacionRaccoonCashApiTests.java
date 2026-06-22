@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -133,6 +134,58 @@ class AplicacionRaccoonCashApiTests {
                                 """.formatted(updatedParentId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.parentCategoryId").value(updatedParentId));
+    }
+
+    @Test
+    void deleteBudgetThroughSpanishEndpointRemovesItFromActiveList() throws Exception {
+        MvcResult createdBudget = mockMvc.perform(post("/api/presupuestos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nombre": "Presupuesto diario",
+                                  "monto": 10000,
+                                  "tipoPeriodo": "DIARIO",
+                                  "valorPeriodo": 1,
+                                  "fechaInicio": "2026-06-22",
+                                  "color": "#22C55E",
+                                  "esGasto": true,
+                                  "incluirTodasLasTransacciones": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Presupuesto diario"))
+                .andExpect(jsonPath("$.tipoPeriodo").value("DIARIO"))
+                .andExpect(jsonPath("$.fechaFin").value("2026-06-22"))
+                .andExpect(jsonPath("$.montoActual").value(0))
+                .andReturn();
+
+        Number budgetId = JsonPath.read(createdBudget.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(put("/api/presupuestos/{id}", budgetId.longValue())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nombre": "Presupuesto diario actualizado",
+                                  "monto": 15000,
+                                  "tipoPeriodo": "DIARIO",
+                                  "valorPeriodo": 2,
+                                  "fechaInicio": "2026-06-22",
+                                  "color": "#3B82F6",
+                                  "esGasto": true,
+                                  "incluirTodasLasTransacciones": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Presupuesto diario actualizado"))
+                .andExpect(jsonPath("$.tipoPeriodo").value("DIARIO"))
+                .andExpect(jsonPath("$.fechaFin").value("2026-06-23"));
+
+        mockMvc.perform(delete("/api/presupuestos/{id}", budgetId.longValue()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/presupuestos"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
     }
 
     private Long createAccount() throws Exception {

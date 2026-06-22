@@ -6,28 +6,42 @@ import java.time.LocalDateTime;
 
 public class PresupuestoRespuesta {
     private Long id;
-    private String name;
-    private BigDecimal amountLimit;
-    private TipoPeriodoPresupuesto periodType;
-    private LocalDate startDate;
-    private LocalDate endDate;
-    private Boolean active;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private String nombre;
+    private BigDecimal monto;
+    private BigDecimal montoActual;
+    private TipoPeriodoPresupuesto tipoPeriodo;
+    private Integer valorPeriodo;
+    private LocalDate fechaInicio;
+    private LocalDate fechaFin;
+    private String color;
+    private Boolean esGasto;
+    private Boolean incluirTodasLasTransacciones;
+    private Boolean activo;
+    private LocalDateTime creadoEn;
+    private LocalDateTime actualizadoEn;
 
     public PresupuestoRespuesta() {
     }
 
     public PresupuestoRespuesta(Presupuesto budget) {
+        this(budget, BigDecimal.ZERO);
+    }
+
+    public PresupuestoRespuesta(Presupuesto budget, BigDecimal montoActual) {
         this.id = budget.getId();
-        this.name = budget.getName();
-        this.amountLimit = budget.getAmountLimit();
-        this.periodType = budget.getPeriodType();
-        this.startDate = budget.getStartDate();
-        this.endDate = budget.getEndDate();
-        this.active = budget.getActive();
-        this.createdAt = budget.getCreatedAt();
-        this.updatedAt = budget.getUpdatedAt();
+        this.nombre = budget.getName();
+        this.monto = budget.getAmountLimit();
+        this.montoActual = montoActual;
+        this.tipoPeriodo = budget.getPeriodType();
+        this.valorPeriodo = budget.getPeriodValue();
+        this.fechaInicio = budget.getStartDate();
+        this.fechaFin = budget.getEndDate();
+        this.color = budget.getColor();
+        this.esGasto = budget.getExpense();
+        this.incluirTodasLasTransacciones = budget.getIncludeAllTransactions();
+        this.activo = budget.getActive();
+        this.creadoEn = budget.getCreatedAt();
+        this.actualizadoEn = budget.getUpdatedAt();
     }
 
     public Long getId() {
@@ -38,67 +52,107 @@ public class PresupuestoRespuesta {
         this.id = id;
     }
 
-    public String getName() {
-        return name;
+    public String getNombre() {
+        return nombre;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
     }
 
-    public BigDecimal getAmountLimit() {
-        return amountLimit;
+    public BigDecimal getMonto() {
+        return monto;
     }
 
-    public void setAmountLimit(BigDecimal amountLimit) {
-        this.amountLimit = amountLimit;
+    public void setMonto(BigDecimal monto) {
+        this.monto = monto;
     }
 
-    public TipoPeriodoPresupuesto getPeriodType() {
-        return periodType;
+    public BigDecimal getMontoActual() {
+        return montoActual;
     }
 
-    public void setPeriodType(TipoPeriodoPresupuesto periodType) {
-        this.periodType = periodType;
+    public void setMontoActual(BigDecimal montoActual) {
+        this.montoActual = montoActual;
     }
 
-    public LocalDate getStartDate() {
-        return startDate;
+    public TipoPeriodoPresupuesto getTipoPeriodo() {
+        return tipoPeriodo;
     }
 
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
+    public void setTipoPeriodo(TipoPeriodoPresupuesto tipoPeriodo) {
+        this.tipoPeriodo = tipoPeriodo;
     }
 
-    public LocalDate getEndDate() {
-        return endDate;
+    public Integer getValorPeriodo() {
+        return valorPeriodo;
     }
 
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
+    public void setValorPeriodo(Integer valorPeriodo) {
+        this.valorPeriodo = valorPeriodo;
     }
 
-    public Boolean getActive() {
-        return active;
+    public LocalDate getFechaInicio() {
+        return fechaInicio;
     }
 
-    public void setActive(Boolean active) {
-        this.active = active;
+    public void setFechaInicio(LocalDate fechaInicio) {
+        this.fechaInicio = fechaInicio;
     }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
+    public LocalDate getFechaFin() {
+        return fechaFin;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    public void setFechaFin(LocalDate fechaFin) {
+        this.fechaFin = fechaFin;
     }
 
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
+    public String getColor() {
+        return color;
     }
 
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
+    public void setColor(String color) {
+        this.color = color;
+    }
+
+    public Boolean getEsGasto() {
+        return esGasto;
+    }
+
+    public void setEsGasto(Boolean esGasto) {
+        this.esGasto = esGasto;
+    }
+
+    public Boolean getIncluirTodasLasTransacciones() {
+        return incluirTodasLasTransacciones;
+    }
+
+    public void setIncluirTodasLasTransacciones(Boolean incluirTodasLasTransacciones) {
+        this.incluirTodasLasTransacciones = incluirTodasLasTransacciones;
+    }
+
+    public Boolean getActivo() {
+        return activo;
+    }
+
+    public void setActivo(Boolean activo) {
+        this.activo = activo;
+    }
+
+    public LocalDateTime getCreadoEn() {
+        return creadoEn;
+    }
+
+    public void setCreadoEn(LocalDateTime creadoEn) {
+        this.creadoEn = creadoEn;
+    }
+
+    public LocalDateTime getActualizadoEn() {
+        return actualizadoEn;
+    }
+
+    public void setActualizadoEn(LocalDateTime actualizadoEn) {
+        this.actualizadoEn = actualizadoEn;
     }
 }

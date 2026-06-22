@@ -61,4 +61,17 @@ interface ApiService {
 
     @GET("saving-goals/{id}/transactions")
     suspend fun getSavingGoalTransactions(@Path("id") id: Long): List<TransactionResponse>
+
+    // Budgets
+    @GET("presupuestos")
+    suspend fun getBudgets(): List<PresupuestoRespuesta>
+
+    @POST("presupuestos")
+    suspend fun createBudget(@Body request: PresupuestoSolicitud): PresupuestoRespuesta
+
+    @PUT("presupuestos/{id}")
+    suspend fun updateBudget(@Path("id") id: Long, @Body request: PresupuestoSolicitud): PresupuestoRespuesta
+
+    @DELETE("presupuestos/{id}")
+    suspend fun deleteBudget(@Path("id") id: Long): Response<Unit>
 }
