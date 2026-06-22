@@ -44,4 +44,13 @@ class RaccoonRepository {
     suspend fun deleteSavingGoal(id: Long) = apiService.deleteSavingGoal(id)
 
     suspend fun getSavingGoalTransactions(id: Long) = apiService.getSavingGoalTransactions(id)
+
+    // Budgets
+    suspend fun getBudgets() = apiService.getBudgets()
+
+    suspend fun createBudget(request: PresupuestoSolicitud) = apiService.createBudget(request)
+
+    suspend fun updateBudget(id: Long, request: PresupuestoSolicitud) = apiService.updateBudget(id, request)
+
+    suspend fun deleteBudget(id: Long) = apiService.deleteBudget(id)
 }

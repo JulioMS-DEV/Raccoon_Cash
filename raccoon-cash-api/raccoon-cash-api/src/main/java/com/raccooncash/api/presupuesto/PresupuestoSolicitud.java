@@ -1,67 +1,107 @@
 package com.raccooncash.api.presupuesto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Pattern;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class PresupuestoSolicitud {
 
     @NotBlank(message = "El nombre es obligatorio")
-    private String name;
+    @JsonAlias("name")
+    private String nombre;
 
-    @NotNull(message = "El limite del presupuesto es obligatorio")
-    @Positive(message = "El limite debe ser mayor a cero")
-    private BigDecimal amountLimit;
+    @NotNull(message = "El monto del presupuesto es obligatorio")
+    @Positive(message = "El monto debe ser mayor a cero")
+    @JsonAlias("amountLimit")
+    private Double monto;
 
     @NotNull(message = "El periodo es obligatorio")
-    private TipoPeriodoPresupuesto periodType;
+    @JsonAlias("periodType")
+    private TipoPeriodoPresupuesto tipoPeriodo;
+
+    @NotNull(message = "El valor del periodo es obligatorio")
+    @Positive(message = "El valor del periodo debe ser mayor a cero")
+    private Integer valorPeriodo;
 
     @NotNull(message = "La fecha inicial es obligatoria")
-    private LocalDate startDate;
+    @JsonAlias("startDate")
+    private LocalDate fechaInicio;
 
-    @NotNull(message = "La fecha final es obligatoria")
-    private LocalDate endDate;
+    @NotBlank(message = "El color es obligatorio")
+    @Pattern(regexp = "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", message = "El color debe ser un valor hexadecimal valido")
+    private String color;
 
-    public String getName() {
-        return name;
+    @NotNull(message = "El tipo de presupuesto es obligatorio")
+    private Boolean esGasto;
+
+    @NotNull(message = "Debe indicar si se incluyen todas las transacciones")
+    private Boolean incluirTodasLasTransacciones;
+
+    public String getNombre() {
+        return nombre;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
     }
 
-    public BigDecimal getAmountLimit() {
-        return amountLimit;
+    public Double getMonto() {
+        return monto;
     }
 
-    public void setAmountLimit(BigDecimal amountLimit) {
-        this.amountLimit = amountLimit;
+    public void setMonto(Double monto) {
+        this.monto = monto;
     }
 
-    public TipoPeriodoPresupuesto getPeriodType() {
-        return periodType;
+    public TipoPeriodoPresupuesto getTipoPeriodo() {
+        return tipoPeriodo;
     }
 
-    public void setPeriodType(TipoPeriodoPresupuesto periodType) {
-        this.periodType = periodType;
+    public void setTipoPeriodo(TipoPeriodoPresupuesto tipoPeriodo) {
+        this.tipoPeriodo = tipoPeriodo;
     }
 
-    public LocalDate getStartDate() {
-        return startDate;
+    public Integer getValorPeriodo() {
+        return valorPeriodo;
     }
 
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
+    public void setValorPeriodo(Integer valorPeriodo) {
+        this.valorPeriodo = valorPeriodo;
     }
 
-    public LocalDate getEndDate() {
-        return endDate;
+    public LocalDate getFechaInicio() {
+        return fechaInicio;
     }
 
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
+    public void setFechaInicio(LocalDate fechaInicio) {
+        this.fechaInicio = fechaInicio;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
+    }
+
+    public Boolean getEsGasto() {
+        return esGasto;
+    }
+
+    public void setEsGasto(Boolean esGasto) {
+        this.esGasto = esGasto;
+    }
+
+    public Boolean getIncluirTodasLasTransacciones() {
+        return incluirTodasLasTransacciones;
+    }
+
+    public void setIncluirTodasLasTransacciones(Boolean incluirTodasLasTransacciones) {
+        this.incluirTodasLasTransacciones = incluirTodasLasTransacciones;
     }
 }
