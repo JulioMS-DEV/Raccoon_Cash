@@ -2,6 +2,7 @@ package com.raccooncash.api.excepcion;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -55,6 +57,17 @@ public class ManejadorGlobalExcepciones {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<RespuestaErrorApi> handleInvalidJson(HttpMessageNotReadableException ex) {
         return buildResponse("El cuerpo de la solicitud no es valido", HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<RespuestaErrorApi> handleDataIntegrity(DataIntegrityViolationException ex) {
+        LOGGER.warn("Data integrity violation", ex);
+        return buildResponse("Los datos no cumplen con las restricciones de la base de datos", HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<RespuestaErrorApi> handleNoResource(NoResourceFoundException ex) {
+        return buildResponse("Recurso no encontrado", HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(Exception.class)

@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -24,12 +25,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ni.edu.uam.raccooncash.data.model.AccountResponse
+import ni.edu.uam.raccooncash.data.model.PresupuestoRespuesta
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
 import ni.edu.uam.raccooncash.data.model.SavingGoalResponse
 import ni.edu.uam.raccooncash.ui.account_details.AccountDetailsScreen
 import ni.edu.uam.raccooncash.ui.accounts.AccountsScreen
 import ni.edu.uam.raccooncash.ui.accounts.AccountsViewModel
 import ni.edu.uam.raccooncash.ui.accounts.AddAccountScreen
+import ni.edu.uam.raccooncash.ui.budgets.AddBudgetScreen
+import ni.edu.uam.raccooncash.ui.budgets.BudgetsScreen
+import ni.edu.uam.raccooncash.ui.budgets.BudgetsViewModel
 import ni.edu.uam.raccooncash.ui.savings.AddGoalTransactionScreen
 import ni.edu.uam.raccooncash.ui.savings.AddSavingGoalScreen
 import ni.edu.uam.raccooncash.ui.savings.SavingGoalDetailsScreen
@@ -51,6 +56,7 @@ class MainActivity : ComponentActivity() {
                 val accountsViewModel: AccountsViewModel = viewModel()
                 val transactionsViewModel: TransactionsViewModel = viewModel()
                 val savingsViewModel: SavingsViewModel = viewModel()
+                val budgetsViewModel: BudgetsViewModel = viewModel()
                 var currentScreen by remember { mutableStateOf("inicio") }
                 var editingTransaction by remember { mutableStateOf<TransactionResponse?>(null) }
                 var editingAccount by remember { mutableStateOf<AccountResponse?>(null) }
@@ -58,6 +64,7 @@ class MainActivity : ComponentActivity() {
                 var selectedSavingGoal by remember { mutableStateOf<SavingGoalResponse?>(null) }
                 var editingSavingGoal by remember { mutableStateOf<SavingGoalResponse?>(null) }
                 var editingGoalTransaction by remember { mutableStateOf<TransactionResponse?>(null) }
+                var editingBudget by remember { mutableStateOf<PresupuestoRespuesta?>(null) }
 
                 Scaffold(
                     bottomBar = {
@@ -68,6 +75,7 @@ class MainActivity : ComponentActivity() {
                             val items = listOf(
                                 Triple("inicio", "Inicio", Icons.Default.Home),
                                 Triple("transacciones", "Transacciones", Icons.AutoMirrored.Filled.List),
+                                Triple("presupuestos", "Presupuestos", Icons.Default.AccountBalanceWallet),
                                 Triple("ahorro", "Ahorro", Icons.Default.Star)
                             )
                             items.forEach { (screen, label, icon) ->
@@ -126,6 +134,25 @@ class MainActivity : ComponentActivity() {
                                 onGoalClick = { goal ->
                                     selectedSavingGoal = goal
                                     currentScreen = "saving_goal_details"
+                                }
+                            )
+                            "presupuestos" -> BudgetsScreen(
+                                viewModel = budgetsViewModel,
+                                onAddBudgetClick = {
+                                    editingBudget = null
+                                    currentScreen = "add_budget"
+                                },
+                                onBudgetClick = { budget ->
+                                    editingBudget = budget
+                                    currentScreen = "add_budget"
+                                }
+                            )
+                            "add_budget" -> AddBudgetScreen(
+                                viewModel = budgetsViewModel,
+                                budgetToEdit = editingBudget,
+                                onBack = {
+                                    currentScreen = "presupuestos"
+                                    budgetsViewModel.loadBudgets()
                                 }
                             )
                             "saving_goal_details" -> selectedSavingGoal?.let { goal ->
