@@ -37,6 +37,7 @@ import ni.edu.uam.raccooncash.data.model.CategoryResponse
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
 import ni.edu.uam.raccooncash.ui.accounts.AccountChip
 import ni.edu.uam.raccooncash.ui.accounts.getEmojiForCategory
+import ni.edu.uam.raccooncash.ui.components.EmojiPickerDialog
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -801,6 +802,7 @@ fun CategoryEditorDialog(
     if (showEmojiPicker) {
         EmojiPickerDialog(
             onDismiss = { showEmojiPicker = false },
+            title = "Elige un emoji para la categoría",
             onEmojiSelected = { 
                 selectedEmoji = it
                 showEmojiPicker = false
@@ -817,74 +819,6 @@ fun CategoryEditorDialog(
                 showParentPicker = false
             }
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun EmojiPickerDialog(
-    onDismiss: () -> Unit,
-    onEmojiSelected: (String) -> Unit
-) {
-    val emojis = listOf(
-        "🍴", "🥦", "🛍️", "🚕", "🍿", "🎁", "🌸", "✈️", "💼", "💊", "📚", "🏠", "💰", "💵", "🍺", "☕", "🎮", "🏋️", "🐶", "⛽",
-        "🍎", "🍔", "🍕", "🍦", "🚲", "🚗", "🚂", "🚢", "🏢", "💻", "📱", "📷", "⚽", "🏀", "🎸", "🎨", "🎬", "👗", "👞",
-        "🌈", "☀️", "🌙", "⭐", "🔥", "💧", "❄️", "🌱", "🍀", "🍓", "🍉", "🍇", "🥕", "🍦", "🍩", "🍪", "🍺", "🍷", "🍹",
-        "🚀", "🚁", "🚜", "⚓", "🏠", "🏖️", "⛰️", "🏗️", "⌚", "⏰", "📻", "📺", "🔋", "🔌", "🔨", "🔧", "🔩", "🏹", "🛡️", "🔑"
-    )
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFF0F111A)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Elige Un Icono", style = MaterialTheme.typography.headlineMedium, color = Color.White, modifier = Modifier.padding(bottom = 16.dp))
-            
-            Surface(
-                onClick = { /* Acción para seleccionar emoji de teclado */ },
-                color = Color(0xFF1E222D),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-            ) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Face, null, tint = Color.White)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text("Seleccione un emoji de su elección como icono", color = Color.White, modifier = Modifier.weight(1f))
-                    Icon(Icons.Default.KeyboardArrowRight, null, tint = Color.Gray)
-                }
-            }
-
-            Surface(
-                onClick = { /* Acción para temas */ },
-                color = Color(0xFF1E222D),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-            ) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Menu, null, tint = Color.White) // Placeholder for theme icon
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text("Cambiar el tema y el estilo de los iconos", color = Color.White, modifier = Modifier.weight(1f))
-                    Icon(Icons.Default.KeyboardArrowRight, null, tint = Color.Gray)
-                }
-            }
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(5),
-                modifier = Modifier.heightIn(max = 400.dp),
-                contentPadding = PaddingValues(8.dp)
-            ) {
-                items(emojis) { emoji ->
-                    Box(
-                        modifier = Modifier
-                            .size(60.dp)
-                            .clickable { onEmojiSelected(emoji) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(emoji, fontSize = 32.sp)
-                    }
-                }
-            }
-        }
     }
 }
 

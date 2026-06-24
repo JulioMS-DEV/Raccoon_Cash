@@ -532,8 +532,6 @@ fun getCurrencySymbol(transaction: TransactionResponse): String {
 }
 
 fun getEmojiForCategory(categoryName: String?, serverIcon: String?): String {
-    if (serverIcon != null && serverIcon.length <= 2) return serverIcon
-    
     // Mapeo basado en el identificador de icono del servidor
     val iconMapping = mapOf(
         "utensils" to "🍴",
@@ -559,8 +557,10 @@ fun getEmojiForCategory(categoryName: String?, serverIcon: String?): String {
         "wrench" to "🔧"
     )
 
-    if (serverIcon != null && iconMapping.containsKey(serverIcon.lowercase())) {
-        return iconMapping[serverIcon.lowercase()]!!
+    val normalizedServerIcon = serverIcon?.trim()
+    if (!normalizedServerIcon.isNullOrEmpty()) {
+        iconMapping[normalizedServerIcon.lowercase()]?.let { return it }
+        if (normalizedServerIcon.isCustomEmojiValue()) return normalizedServerIcon
     }
 
     return when (categoryName?.lowercase()) {
@@ -588,6 +588,17 @@ fun getEmojiForCategory(categoryName: String?, serverIcon: String?): String {
         "otros" -> "📝"
         "corrección de saldo" -> "⚖️"
         else -> "📝"
+    }
+}
+
+private fun String.isCustomEmojiValue(): Boolean {
+    return any { char ->
+        val type = Character.getType(char)
+        type == Character.SURROGATE.toInt() ||
+            type == Character.OTHER_SYMBOL.toInt() ||
+            type == Character.NON_SPACING_MARK.toInt() ||
+            char == '\uFE0F' ||
+            char == '\u200D'
     }
 }
 

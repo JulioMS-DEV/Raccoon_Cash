@@ -29,6 +29,7 @@ import ni.edu.uam.raccooncash.data.model.PresupuestoRespuesta
 import ni.edu.uam.raccooncash.data.model.TipoPeriodoPresupuesto
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
 import ni.edu.uam.raccooncash.data.model.SavingGoalResponse
+import ni.edu.uam.raccooncash.data.security.PinSecurityStore
 import ni.edu.uam.raccooncash.ui.account_details.AccountDetailsScreen
 import ni.edu.uam.raccooncash.ui.accounts.AccountsScreen
 import ni.edu.uam.raccooncash.ui.accounts.AccountsViewModel
@@ -42,21 +43,46 @@ import ni.edu.uam.raccooncash.ui.savings.AddSavingGoalScreen
 import ni.edu.uam.raccooncash.ui.savings.SavingGoalDetailsScreen
 import ni.edu.uam.raccooncash.ui.savings.SavingsScreen
 import ni.edu.uam.raccooncash.ui.savings.SavingsViewModel
+import ni.edu.uam.raccooncash.ui.security.PinLockScreen
+import ni.edu.uam.raccooncash.ui.security.SecurityScreen
 import ni.edu.uam.raccooncash.ui.settings.SettingsScreen
 import ni.edu.uam.raccooncash.ui.theme.RaccoonCashTheme
 import ni.edu.uam.raccooncash.ui.transactions.AddTransactionScreen
+import ni.edu.uam.raccooncash.ui.transactions.TransactionFilterSheet
+import ni.edu.uam.raccooncash.ui.transactions.TransactionFilterState
+import ni.edu.uam.raccooncash.ui.transactions.TransactionSortOption
+import ni.edu.uam.raccooncash.ui.transactions.TransactionToolsMenu
 import ni.edu.uam.raccooncash.ui.transactions.TransactionsViewModel
+import ni.edu.uam.raccooncash.ui.transactions.buildTransactionGroups
+import ni.edu.uam.raccooncash.ui.transactions.matchesTransactionFilters
+import ni.edu.uam.raccooncash.ui.transactions.parseTransactionDate
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
+    private lateinit var pinSecurityStore: PinSecurityStore
+    private val isAppLocked = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        pinSecurityStore = PinSecurityStore(this)
+        isAppLocked.value = pinSecurityStore.isPinEnabled()
+
         setContent {
             var isDarkTheme by remember { mutableStateOf(true) }
             RaccoonCashTheme(darkTheme = isDarkTheme) {
+                var isPinEnabled by remember { mutableStateOf(pinSecurityStore.isPinEnabled()) }
+
+                if (isPinEnabled && isAppLocked.value) {
+                    PinLockScreen(
+                        onValidatePin = { pin -> pinSecurityStore.verifyPin(pin) },
+                        onUnlocked = { isAppLocked.value = false }
+                    )
+                    return@RaccoonCashTheme
+                }
+
                 val accountsViewModel: AccountsViewModel = viewModel()
                 val transactionsViewModel: TransactionsViewModel = viewModel()
                 val savingsViewModel: SavingsViewModel = viewModel()
@@ -287,12 +313,28 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             "settings" -> SettingsScreen(
-                                onBack = { currentScreen = "inicio" }
+                                onBack = { currentScreen = "inicio" },
+                                onSecurityClick = { currentScreen = "security" }
+                            )
+                            "security" -> SecurityScreen(
+                                pinSecurityStore = pinSecurityStore,
+                                onBack = { currentScreen = "settings" },
+                                onPinStateChanged = { enabled ->
+                                    isPinEnabled = enabled
+                                    isAppLocked.value = false
+                                }
                             )
                         }
                     }
                 }
             }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (::pinSecurityStore.isInitialized && pinSecurityStore.isPinEnabled()) {
+            isAppLocked.value = true
         }
     }
 }
@@ -332,23 +374,50 @@ fun TransactionsTabScreen(
     
     val months = listOf("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre")
     var selectedMonthIndex by remember { mutableIntStateOf(java.time.LocalDate.now().monthValue - 1) }
+    var filterState by remember { mutableStateOf(TransactionFilterState()) }
+    var sortOption by remember { mutableStateOf(TransactionSortOption.DATE_DESC) }
+    var showFilterSheet by remember { mutableStateOf(false) }
 
-    val filteredTransactions = transactions.filter {
-        val date = java.time.LocalDateTime.parse(it.date, java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-        date.monthValue == selectedMonthIndex + 1 && date.year == java.time.LocalDate.now().year
+    val monthTransactions = transactions.filter { transaction ->
+        val date = parseTransactionDate(transaction)
+        date?.monthValue == selectedMonthIndex + 1 && date.year == LocalDate.now().year
+    }
+
+    val filteredTransactions = monthTransactions.filter { transaction ->
+        transaction.matchesTransactionFilters(filterState, allCategories)
     }
 
     val totalIncome = filteredTransactions.filter { it.type == "INCOME" }.sumOf { it.amount }
     val totalExpense = filteredTransactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0F111A))) {
-        Text(
-            "Transacciones",
-            style = MaterialTheme.typography.headlineMedium,
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(16.dp)
+    if (showFilterSheet) {
+        TransactionFilterSheet(
+            filters = filterState,
+            categories = allCategories,
+            onFiltersChange = { filterState = it },
+            onDismiss = { showFilterSheet = false }
         )
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF0F111A))) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Transacciones",
+                style = MaterialTheme.typography.headlineMedium,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            TransactionToolsMenu(
+                activeFilterCount = filterState.activeCount,
+                sortOption = sortOption,
+                onFilterClick = { showFilterSheet = true },
+                onSortSelected = { sortOption = it }
+            )
+        }
 
         ScrollableTabRow(
             selectedTabIndex = selectedMonthIndex,
@@ -392,8 +461,17 @@ fun TransactionsTabScreen(
         }
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-            val groupedByDay = filteredTransactions.sortedByDescending { it.date }.groupBy {
-                java.time.LocalDateTime.parse(it.date, java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME).toLocalDate()
+            val groupedByDay = buildTransactionGroups(filteredTransactions, sortOption)
+
+            if (filteredTransactions.isEmpty()) {
+                item {
+                    Text(
+                        text = if (filterState.hasActiveFilters) "No hay transacciones con esos filtros." else "No hay transacciones en este mes.",
+                        color = Color.Gray,
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
             }
 
             groupedByDay.forEach { (date, dailyTrans) ->
@@ -408,7 +486,13 @@ fun TransactionsTabScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(dateLabel.replaceFirstChar { it.uppercase(Locale.getDefault()) }, color = Color.Gray, fontSize = 14.sp)
-                        val daySum = dailyTrans.sumOf { if (it.type == "INCOME") it.amount else -it.amount }
+                        val daySum = dailyTrans.sumOf {
+                            when (it.type) {
+                                "INCOME" -> it.amount
+                                "EXPENSE" -> -it.amount
+                                else -> 0.0
+                            }
+                        }
                         Text("C$${String.format(Locale.getDefault(), "%.2f", daySum)}", color = Color.Gray, fontSize = 14.sp)
                     }
                 }
