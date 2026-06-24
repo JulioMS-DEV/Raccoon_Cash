@@ -66,6 +66,28 @@ interface ApiService {
     @GET("presupuestos")
     suspend fun getBudgets(): List<PresupuestoRespuesta>
 
+    @GET("presupuestos/{id}/categories")
+    suspend fun getBudgetCategoryLimits(@Path("id") id: Long): List<BudgetCategoryLimitResponse>
+
+    @POST("presupuestos/{id}/categories")
+    suspend fun createBudgetCategoryLimit(
+        @Path("id") id: Long,
+        @Body request: BudgetCategoryLimitRequest
+    ): BudgetCategoryLimitResponse
+
+    @PUT("presupuestos/{budgetId}/categories/{limitId}")
+    suspend fun updateBudgetCategoryLimit(
+        @Path("budgetId") budgetId: Long,
+        @Path("limitId") limitId: Long,
+        @Body request: BudgetCategoryLimitRequest
+    ): BudgetCategoryLimitResponse
+
+    @DELETE("presupuestos/{budgetId}/categories/{limitId}")
+    suspend fun deleteBudgetCategoryLimit(
+        @Path("budgetId") budgetId: Long,
+        @Path("limitId") limitId: Long
+    ): Response<Unit>
+
     @POST("presupuestos")
     suspend fun createBudget(@Body request: PresupuestoSolicitud): PresupuestoRespuesta
 

@@ -40,7 +40,7 @@ public class LimiteCategoriaPresupuestoServicio {
     public LimiteCategoriaPresupuestoRespuesta createLimit(Long budgetId, LimiteCategoriaPresupuestoSolicitud request) {
         validateAmount(request.getAmountLimit());
         Presupuesto budget = budgetService.findActiveBudget(budgetId);
-        Categoria category = findExpenseCategory(request.getCategoryId());
+        Categoria category = findBudgetCategory(budget, request.getCategoryId());
 
         LimiteCategoriaPresupuesto limit = new LimiteCategoriaPresupuesto();
         limit.setBudget(budget);
@@ -54,9 +54,9 @@ public class LimiteCategoriaPresupuestoServicio {
     @Transactional
     public LimiteCategoriaPresupuestoRespuesta updateLimit(Long budgetId, Long limitId, LimiteCategoriaPresupuestoSolicitud request) {
         validateAmount(request.getAmountLimit());
-        budgetService.findActiveBudget(budgetId);
+        Presupuesto budget = budgetService.findActiveBudget(budgetId);
         LimiteCategoriaPresupuesto limit = findLimit(budgetId, limitId);
-        Categoria category = findExpenseCategory(request.getCategoryId());
+        Categoria category = findBudgetCategory(budget, request.getCategoryId());
 
         limit.setCategory(category);
         limit.setAmountLimit(request.getAmountLimit());
@@ -77,12 +77,14 @@ public class LimiteCategoriaPresupuestoServicio {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Limite de categoria no encontrado"));
     }
 
-    private Categoria findExpenseCategory(Long categoryId) {
+    private Categoria findBudgetCategory(Presupuesto budget, Long categoryId) {
         Categoria category = categoryRepository.findByIdAndActiveTrue(categoryId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Categoria no encontrada"));
 
-        if (category.getType() != TipoCategoria.EXPENSE) {
-            throw new SolicitudIncorrectaException("Solo se pueden presupuestar categorias de gasto");
+        TipoCategoria expectedType = Boolean.TRUE.equals(budget.getExpense()) ? TipoCategoria.EXPENSE : TipoCategoria.INCOME;
+        if (category.getType() != expectedType) {
+            String expectedLabel = expectedType == TipoCategoria.EXPENSE ? "gasto" : "ingreso";
+            throw new SolicitudIncorrectaException("La categoria debe ser de tipo " + expectedLabel);
         }
 
         return category;

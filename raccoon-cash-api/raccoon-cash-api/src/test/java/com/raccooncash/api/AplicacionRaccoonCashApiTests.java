@@ -188,6 +188,61 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(content().json("[]"));
     }
 
+    @Test
+    void savingBudgetCanTrackIncomeCategoryLimits() throws Exception {
+        Long accountId = createAccount();
+        Long categoryId = createCategory("Ahorro", "INCOME");
+
+        MvcResult createdBudget = mockMvc.perform(post("/api/presupuestos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nombre": "Presupuesto de ahorro",
+                                  "monto": 1000,
+                                  "tipoPeriodo": "MENSUAL",
+                                  "valorPeriodo": 1,
+                                  "fechaInicio": "2026-06-01",
+                                  "color": "#22C55E",
+                                  "esGasto": false,
+                                  "incluirTodasLasTransacciones": false
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.esGasto").value(false))
+                .andReturn();
+
+        Number budgetId = JsonPath.read(createdBudget.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(post("/api/presupuestos/{id}/categories", budgetId.longValue())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "categoryId": %d,
+                                  "amountLimit": 1000
+                                }
+                                """.formatted(categoryId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categoryId").value(categoryId));
+
+        mockMvc.perform(post("/api/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "description": "Aporte de ahorro",
+                                  "amount": 300,
+                                  "type": "INCOME",
+                                  "date": "2026-06-15T10:00:00",
+                                  "accountId": %d,
+                                  "categoryId": %d
+                                }
+                                """.formatted(accountId, categoryId)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/presupuestos/{id}", budgetId.longValue()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.montoActual").value(300));
+    }
+
     private Long createAccount() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/accounts")
                         .contentType(MediaType.APPLICATION_JSON)

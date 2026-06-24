@@ -172,6 +172,12 @@ public class PresupuestoServicio {
             return transaction.getCategory() != null && categoryIds.contains(transaction.getCategory().getId());
         }
 
+        if (!Boolean.TRUE.equals(budget.getIncludeAllTransactions()) && !categoryIds.isEmpty()) {
+            return transaction.getType() == TipoTransaccion.INCOME
+                    && transaction.getCategory() != null
+                    && categoryIds.contains(transaction.getCategory().getId());
+        }
+
         return transaction.getSavingGoal() != null;
     }
 

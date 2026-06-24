@@ -17,6 +17,7 @@ data class TransactionResponse(
     val toAccountName: String?,
     val categoryId: Long?,
     val categoryName: String?,
+    val savingGoalId: Long? = null,
     
     // Mantener los objetos anidados por si el GET los devuelve así (u opcionales)
     val account: AccountResponse? = null,
