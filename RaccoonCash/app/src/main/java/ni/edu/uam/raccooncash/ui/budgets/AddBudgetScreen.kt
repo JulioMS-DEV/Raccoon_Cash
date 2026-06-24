@@ -7,10 +7,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -31,9 +33,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ni.edu.uam.raccooncash.data.model.CategoryResponse
 import ni.edu.uam.raccooncash.data.model.TipoPeriodoPresupuesto
 import ni.edu.uam.raccooncash.data.model.PresupuestoRespuesta
+import ni.edu.uam.raccooncash.ui.accounts.AccountsViewModel
 import ni.edu.uam.raccooncash.ui.accounts.accountColors
+import ni.edu.uam.raccooncash.ui.accounts.getEmojiForCategory
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -43,6 +48,7 @@ import java.util.Locale
 @Composable
 fun AddBudgetScreen(
     viewModel: BudgetsViewModel,
+    accountsViewModel: AccountsViewModel,
     budgetToEdit: PresupuestoRespuesta? = null,
     onBack: () -> Unit
 ) {
@@ -50,7 +56,7 @@ fun AddBudgetScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var nombre by remember { mutableStateOf(budgetToEdit?.nombre ?: "") }
     var monto by remember { mutableStateOf(budgetToEdit?.monto?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "") }
-    var esGasto by remember { mutableStateOf(budgetToEdit?.esGasto ?: true) }
+    var esGasto by remember { mutableStateOf(true) }
     var valorPeriodo by remember { mutableStateOf(budgetToEdit?.valorPeriodo?.toString() ?: "1") }
     var tipoPeriodo by remember { mutableStateOf(budgetToEdit?.tipoPeriodo ?: TipoPeriodoPresupuesto.MENSUAL) }
     
@@ -64,11 +70,16 @@ fun AddBudgetScreen(
     } else accountColors[0]
     var selectedColor by remember { mutableStateOf(initialColor) }
     
-    var incluirTodasLasTransacciones by remember { mutableStateOf(budgetToEdit?.incluirTodasLasTransacciones ?: false) }
+    var incluirTodasLasTransacciones by remember { mutableStateOf(budgetToEdit?.incluirTodasLasTransacciones ?: true) }
+    var selectedCategoryId by remember(budgetToEdit?.id) { mutableStateOf<Long?>(null) }
     
     val success by viewModel.operationSuccess.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val categories by accountsViewModel.categories.collectAsState()
+    val categoryLimits by viewModel.currentBudgetCategoryLimits.collectAsState()
+    val expenseCategories = categories.filter { it.type == "EXPENSE" }
+    val isFormValid = nombre.isNotEmpty() && monto.isNotEmpty() && (!esGasto || selectedCategoryId != null)
     
     val datePickerDialog = remember {
         DatePickerDialog(
@@ -97,6 +108,23 @@ fun AddBudgetScreen(
             viewModel.resetSuccess()
         }
     }
+
+    LaunchedEffect(budgetToEdit?.id) {
+        accountsViewModel.loadAccounts()
+        if (budgetToEdit != null) {
+            viewModel.loadBudgetCategoryLimits(budgetToEdit.id)
+        } else {
+            viewModel.clearBudgetCategoryLimits()
+        }
+    }
+
+    LaunchedEffect(categoryLimits, budgetToEdit?.id) {
+        if (budgetToEdit != null && selectedCategoryId == null) {
+            selectedCategoryId = categoryLimits.firstOrNull()?.categoryId
+        }
+    }
+
+
 
     LaunchedEffect(error) {
         error?.let {
@@ -133,10 +161,10 @@ fun AddBudgetScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(80.dp),
-                color = if (nombre.isNotEmpty() && monto.isNotEmpty() && !isLoading) Color(0xFFD1C4E9) else Color.Gray.copy(alpha = 0.5f),
+                color = if (isFormValid && !isLoading) Color(0xFFD1C4E9) else Color.Gray.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                 onClick = {
-                    if (nombre.isNotEmpty() && monto.isNotEmpty() && !isLoading) {
+                    if (isFormValid && !isLoading) {
                         val argb = selectedColor.toArgb()
                         val colorHex = String.format("#%06X", 0xFFFFFF and argb)
                         
@@ -153,7 +181,8 @@ fun AddBudgetScreen(
                                 fechaInicio = fechaInicio.format(DateTimeFormatter.ISO_LOCAL_DATE),
                                 color = colorHex,
                                 esGasto = esGasto,
-                                incluirTodasLasTransacciones = incluirTodasLasTransacciones
+                                incluirTodasLasTransacciones = if (esGasto) false else incluirTodasLasTransacciones,
+                                categoryId = if (esGasto) selectedCategoryId else null
                             )
                         } else {
                             viewModel.createBudget(
@@ -164,7 +193,8 @@ fun AddBudgetScreen(
                                 fechaInicio = fechaInicio.format(DateTimeFormatter.ISO_LOCAL_DATE),
                                 color = colorHex,
                                 esGasto = esGasto,
-                                incluirTodasLasTransacciones = incluirTodasLasTransacciones
+                                incluirTodasLasTransacciones = if (esGasto) false else incluirTodasLasTransacciones,
+                                categoryId = if (esGasto) selectedCategoryId else null
                             )
                         }
                     }
@@ -175,8 +205,8 @@ fun AddBudgetScreen(
                         CircularProgressIndicator(color = Color.Black)
                     } else {
                         Text(
-                            text = if (nombre.isEmpty() || monto.isEmpty()) "Completa los campos" else "Guardar presupuesto",
-                            color = if (nombre.isNotEmpty() && monto.isNotEmpty()) Color.Black else Color.White.copy(alpha = 0.7f),
+                            text = if (nombre.isEmpty() || monto.isEmpty()) "Completa los campos" else if (esGasto && selectedCategoryId == null) "Elige una categoría" else "Guardar presupuesto",
+                            color = if (isFormValid) Color.Black else Color.White.copy(alpha = 0.7f),
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
@@ -189,35 +219,11 @@ fun AddBudgetScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Expense/Saving Tabs
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF2C2C2E))
-                    .padding(4.dp)
-            ) {
-                BudgetTab(
-                    text = "Presupuesto De Gastos",
-                    isSelected = esGasto,
-                    color = Color(0xFFE57373),
-                    modifier = Modifier.weight(1f),
-                    onClick = { esGasto = true }
-                )
-                BudgetTab(
-                    text = "Presupuesto De Ahorro",
-                    isSelected = !esGasto,
-                    color = Color(0xFF81C784),
-                    modifier = Modifier.weight(1f),
-                    onClick = { esGasto = false }
-                )
-            }
 
-            Spacer(modifier = Modifier.height(32.dp))
 
             // Central Card UI
             Surface(
@@ -368,6 +374,14 @@ fun AddBudgetScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            BudgetCategorySelector(
+                categories = expenseCategories,
+                selectedCategoryId = selectedCategoryId,
+                onCategorySelected = { selectedCategoryId = it }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Color Palette
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -400,6 +414,71 @@ fun AddBudgetScreen(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun BudgetCategorySelector(
+    categories: List<CategoryResponse>,
+    selectedCategoryId: Long?,
+    onCategorySelected: (Long) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Categoría del presupuesto",
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Las transacciones creadas desde este presupuesto usarán esta categoría.",
+            color = Color.Gray,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+        )
+
+        if (categories.isEmpty()) {
+            Text("No hay categorías de gasto disponibles.", color = Color.Gray, fontSize = 14.sp)
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(categories) { category ->
+                    BudgetCategoryChip(
+                        category = category,
+                        isSelected = selectedCategoryId == category.id,
+                        onClick = { onCategorySelected(category.id) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BudgetCategoryChip(
+    category: CategoryResponse,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = if (isSelected) Color(0xFFD1C4E9).copy(alpha = 0.22f) else Color.Gray.copy(alpha = 0.1f),
+        border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFD1C4E9)) else null
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(getEmojiForCategory(category.name, category.icon), fontSize = 20.sp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = category.name,
+                color = if (isSelected) Color.White else Color.Gray,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
         }
     }
 }

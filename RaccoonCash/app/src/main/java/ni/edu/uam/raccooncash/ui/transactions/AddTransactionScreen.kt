@@ -48,6 +48,10 @@ import java.util.*
 fun AddTransactionScreen(
     viewModel: TransactionsViewModel,
     transactionToEdit: TransactionResponse? = null,
+    initialType: String? = null,
+    initialDescription: String = "",
+    initialDate: LocalDate? = null,
+    initialCategoryId: Long? = null,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -57,19 +61,24 @@ fun AddTransactionScreen(
     val error by viewModel.error.collectAsState()
     val success by viewModel.addTransactionSuccess.collectAsState()
 
-    var selectedTab by remember { mutableIntStateOf(if (transactionToEdit?.type == "INCOME") 1 else if (transactionToEdit?.type == "TRANSFER") 2 else 0) }
+    val initialTab = when (transactionToEdit?.type ?: initialType) {
+        "INCOME" -> 1
+        "TRANSFER" -> 2
+        else -> 0
+    }
+    var selectedTab by remember { mutableIntStateOf(initialTab) }
     var amount by remember { mutableStateOf(transactionToEdit?.amount?.toString() ?: "") }
-    var title by remember { mutableStateOf(transactionToEdit?.description ?: "") }
+    var title by remember { mutableStateOf(transactionToEdit?.description ?: initialDescription) }
     var notes by remember { mutableStateOf(transactionToEdit?.notes ?: "") }
     var selectedAccountId by remember { mutableStateOf<Long?>(transactionToEdit?.accountId ?: transactionToEdit?.account?.id) }
     var selectedToAccountId by remember { mutableStateOf<Long?>(transactionToEdit?.destinationAccountId ?: transactionToEdit?.toAccountId ?: transactionToEdit?.toAccount?.id) }
-    var selectedCategoryId by remember { mutableStateOf<Long?>(transactionToEdit?.categoryId ?: transactionToEdit?.category?.id) }
+    var selectedCategoryId by remember { mutableStateOf<Long?>(transactionToEdit?.categoryId ?: transactionToEdit?.category?.id ?: initialCategoryId) }
 
     // Date and Time State
     val initialDateTime = if (transactionToEdit?.date != null) {
         try { LocalDateTime.parse(transactionToEdit.date, DateTimeFormatter.ISO_LOCAL_DATE_TIME) } catch (e: Exception) { LocalDateTime.now() }
     } else {
-        LocalDateTime.now()
+        LocalDateTime.of(initialDate ?: LocalDate.now(), LocalTime.now())
     }
     var selectedDate by remember { mutableStateOf(initialDateTime.toLocalDate()) }
     var selectedTime by remember { mutableStateOf(initialDateTime.toLocalTime()) }

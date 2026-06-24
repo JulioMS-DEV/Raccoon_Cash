@@ -48,6 +48,14 @@ class RaccoonRepository {
     // Budgets
     suspend fun getBudgets() = apiService.getBudgets()
 
+    suspend fun getBudgetCategoryLimits(id: Long) = apiService.getBudgetCategoryLimits(id)
+
+    suspend fun createBudgetCategoryLimit(id: Long, request: BudgetCategoryLimitRequest) = apiService.createBudgetCategoryLimit(id, request)
+
+    suspend fun updateBudgetCategoryLimit(budgetId: Long, limitId: Long, request: BudgetCategoryLimitRequest) = apiService.updateBudgetCategoryLimit(budgetId, limitId, request)
+
+    suspend fun deleteBudgetCategoryLimit(budgetId: Long, limitId: Long) = apiService.deleteBudgetCategoryLimit(budgetId, limitId)
+
     suspend fun createBudget(request: PresupuestoSolicitud) = apiService.createBudget(request)
 
     suspend fun updateBudget(id: Long, request: PresupuestoSolicitud) = apiService.updateBudget(id, request)

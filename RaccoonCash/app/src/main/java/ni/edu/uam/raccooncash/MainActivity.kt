@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ni.edu.uam.raccooncash.data.model.AccountResponse
 import ni.edu.uam.raccooncash.data.model.PresupuestoRespuesta
+import ni.edu.uam.raccooncash.data.model.TipoPeriodoPresupuesto
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
 import ni.edu.uam.raccooncash.data.model.SavingGoalResponse
 import ni.edu.uam.raccooncash.ui.account_details.AccountDetailsScreen
@@ -33,6 +34,7 @@ import ni.edu.uam.raccooncash.ui.accounts.AccountsScreen
 import ni.edu.uam.raccooncash.ui.accounts.AccountsViewModel
 import ni.edu.uam.raccooncash.ui.accounts.AddAccountScreen
 import ni.edu.uam.raccooncash.ui.budgets.AddBudgetScreen
+import ni.edu.uam.raccooncash.ui.budgets.BudgetDetailsScreen
 import ni.edu.uam.raccooncash.ui.budgets.BudgetsScreen
 import ni.edu.uam.raccooncash.ui.budgets.BudgetsViewModel
 import ni.edu.uam.raccooncash.ui.savings.AddGoalTransactionScreen
@@ -44,6 +46,8 @@ import ni.edu.uam.raccooncash.ui.settings.SettingsScreen
 import ni.edu.uam.raccooncash.ui.theme.RaccoonCashTheme
 import ni.edu.uam.raccooncash.ui.transactions.AddTransactionScreen
 import ni.edu.uam.raccooncash.ui.transactions.TransactionsViewModel
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -64,7 +68,12 @@ class MainActivity : ComponentActivity() {
                 var selectedSavingGoal by remember { mutableStateOf<SavingGoalResponse?>(null) }
                 var editingSavingGoal by remember { mutableStateOf<SavingGoalResponse?>(null) }
                 var editingGoalTransaction by remember { mutableStateOf<TransactionResponse?>(null) }
+                var selectedBudget by remember { mutableStateOf<PresupuestoRespuesta?>(null) }
                 var editingBudget by remember { mutableStateOf<PresupuestoRespuesta?>(null) }
+                var budgetTransactionInitialType by remember { mutableStateOf<String?>(null) }
+                var budgetTransactionInitialDescription by remember { mutableStateOf("") }
+                var budgetTransactionInitialDate by remember { mutableStateOf<LocalDate?>(null) }
+                var budgetTransactionInitialCategoryId by remember { mutableStateOf<Long?>(null) }
 
                 Scaffold(
                     bottomBar = {
@@ -143,15 +152,48 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = "add_budget"
                                 },
                                 onBudgetClick = { budget ->
-                                    editingBudget = budget
-                                    currentScreen = "add_budget"
+                                    selectedBudget = budget
+                                    currentScreen = "budget_details"
                                 }
                             )
+                            "budget_details" -> selectedBudget?.let { budget ->
+                                BudgetDetailsScreen(
+                                    budgetId = budget.id,
+                                    viewModel = budgetsViewModel,
+                                    accountsViewModel = accountsViewModel,
+                                    onAddTransaction = { currentBudget, categoryId ->
+                                        editingTransaction = null
+                                        budgetTransactionInitialType = if (currentBudget.esGasto) "EXPENSE" else "INCOME"
+                                        budgetTransactionInitialDescription = currentBudget.nombre
+                                        budgetTransactionInitialDate = getDefaultTransactionDateForBudget(currentBudget)
+                                        budgetTransactionInitialCategoryId = categoryId
+                                        currentScreen = "add_budget_transaction"
+                                    },
+                                    onEditBudget = { currentBudget ->
+                                        editingBudget = currentBudget
+                                        currentScreen = "add_budget"
+                                    },
+                                    onTransactionClick = { transaction ->
+                                        editingTransaction = transaction
+                                        budgetTransactionInitialType = null
+                                        budgetTransactionInitialDescription = ""
+                                        budgetTransactionInitialDate = null
+                                        budgetTransactionInitialCategoryId = null
+                                        currentScreen = "add_budget_transaction"
+                                    },
+                                    onBack = { currentScreen = "presupuestos" }
+                                )
+                            }
                             "add_budget" -> AddBudgetScreen(
                                 viewModel = budgetsViewModel,
+                                accountsViewModel = accountsViewModel,
                                 budgetToEdit = editingBudget,
                                 onBack = {
-                                    currentScreen = "presupuestos"
+                                    currentScreen = if (editingBudget != null && selectedBudget?.id == editingBudget?.id) {
+                                        "budget_details"
+                                    } else {
+                                        "presupuestos"
+                                    }
                                     budgetsViewModel.loadBudgets()
                                 }
                             )
@@ -229,6 +271,21 @@ class MainActivity : ComponentActivity() {
                                     accountsViewModel.loadAccounts()
                                 }
                             )
+                            "add_budget_transaction" -> selectedBudget?.let {
+                                AddTransactionScreen(
+                                    viewModel = transactionsViewModel,
+                                    transactionToEdit = editingTransaction,
+                                    initialType = budgetTransactionInitialType,
+                                    initialDescription = budgetTransactionInitialDescription,
+                                    initialDate = budgetTransactionInitialDate,
+                                    initialCategoryId = budgetTransactionInitialCategoryId,
+                                    onBack = {
+                                        currentScreen = "budget_details"
+                                        accountsViewModel.loadAccounts()
+                                        budgetsViewModel.loadBudgets()
+                                    }
+                                )
+                            }
                             "settings" -> SettingsScreen(
                                 onBack = { currentScreen = "inicio" }
                             )
@@ -238,6 +295,29 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+private fun getDefaultTransactionDateForBudget(budget: PresupuestoRespuesta): LocalDate {
+    val startDate = try {
+        LocalDate.parse(budget.fechaInicio, DateTimeFormatter.ISO_LOCAL_DATE)
+    } catch (e: Exception) {
+        return LocalDate.now()
+    }
+    val endDate = calculateBudgetEndDate(startDate, budget.tipoPeriodo, budget.valorPeriodo)
+    val today = LocalDate.now()
+
+    return if (today.isBefore(startDate) || today.isAfter(endDate)) startDate else today
+}
+
+private fun calculateBudgetEndDate(startDate: LocalDate, periodType: TipoPeriodoPresupuesto, periodValue: Int): LocalDate {
+    val value = periodValue.toLong().coerceAtLeast(1)
+    return when (periodType) {
+        TipoPeriodoPresupuesto.DIARIO -> startDate.plusDays(value)
+        TipoPeriodoPresupuesto.SEMANAL -> startDate.plusWeeks(value)
+        TipoPeriodoPresupuesto.MENSUAL -> startDate.plusMonths(value)
+        TipoPeriodoPresupuesto.ANUAL -> startDate.plusYears(value)
+        TipoPeriodoPresupuesto.PERSONALIZADO -> startDate.plusDays(value)
+    }.minusDays(1)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
