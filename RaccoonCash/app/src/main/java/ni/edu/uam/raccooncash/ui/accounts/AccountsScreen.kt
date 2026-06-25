@@ -40,8 +40,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ni.edu.uam.raccooncash.data.model.AccountResponse
+import ni.edu.uam.raccooncash.data.model.PresupuestoRespuesta
+import ni.edu.uam.raccooncash.data.model.SavingGoalResponse
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
+import ni.edu.uam.raccooncash.ui.budgets.BudgetsViewModel
 import ni.edu.uam.raccooncash.ui.components.RaccAddFloatingActionButton
+import ni.edu.uam.raccooncash.ui.savings.SavingsViewModel
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -99,10 +103,23 @@ fun getAccountVisual(accountName: String): AccountVisual {
     }
 }
 
+private fun parseAccountColor(color: String?): Color? {
+    val rawColor = color?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val normalizedColor = if (rawColor.startsWith("#")) rawColor else "#$rawColor"
+
+    return try {
+        Color(android.graphics.Color.parseColor(normalizedColor))
+    } catch (e: IllegalArgumentException) {
+        null
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountsScreen(
     viewModel: AccountsViewModel = viewModel(),
+    savingsViewModel: SavingsViewModel = viewModel(),
+    budgetsViewModel: BudgetsViewModel = viewModel(),
     onAddAccountClick: () -> Unit,
     onAddTransactionClick: () -> Unit,
     onTransactionClick: (TransactionResponse) -> Unit = {},
@@ -112,6 +129,8 @@ fun AccountsScreen(
     val accounts by viewModel.accounts.collectAsState()
     val transactions by viewModel.transactions.collectAsState()
     val allCategories by viewModel.categories.collectAsState()
+    val savingGoals by savingsViewModel.savingGoals.collectAsState()
+    val budgets by budgetsViewModel.budgets.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -231,7 +250,11 @@ fun AccountsScreen(
             }
 
             item {
-                HomeInsightSection(transactions = transactions)
+                HomeInsightSection(
+                    transactions = transactions,
+                    savingGoals = savingGoals,
+                    budgets = budgets
+                )
             }
 
             item {
@@ -314,7 +337,11 @@ fun AccountsScreen(
 }
 
 @Composable
-private fun HomeInsightSection(transactions: List<TransactionResponse>) {
+private fun HomeInsightSection(
+    transactions: List<TransactionResponse>,
+    savingGoals: List<SavingGoalResponse>,
+    budgets: List<PresupuestoRespuesta>
+) {
     val today = LocalDate.now()
     val largestExpenseToday = remember(transactions, today) {
         transactions
@@ -330,6 +357,28 @@ private fun HomeInsightSection(transactions: List<TransactionResponse>) {
             ?: "Gasto"
     } ?: "Sin gastos hoy"
     val largestExpenseAmount = largestExpenseToday?.let { formatHomeCurrency(it.amount) } ?: "C$0.00"
+    val closestGoal = remember(savingGoals) {
+        savingGoals.maxByOrNull { goal ->
+            calculateHomeProgress(current = goal.currentAmount, target = goal.targetAmount)
+        }
+    }
+    val closestGoalProgress = closestGoal?.let { goal ->
+        calculateHomeProgress(current = goal.currentAmount, target = goal.targetAmount)
+    } ?: 0.0
+    val closestGoalRemaining = closestGoal?.let { goal ->
+        (goal.targetAmount - goal.currentAmount).coerceAtLeast(0.0)
+    }
+    val riskiestBudget = remember(budgets) {
+        budgets.maxByOrNull { budget ->
+            calculateHomeProgress(current = budget.montoActual, target = budget.monto)
+        }
+    }
+    val riskiestBudgetProgress = riskiestBudget?.let { budget ->
+        calculateHomeProgress(current = budget.montoActual, target = budget.monto)
+    } ?: 0.0
+    val riskiestBudgetRemaining = riskiestBudget?.let { budget ->
+        (budget.monto - budget.montoActual).coerceAtLeast(0.0)
+    }
 
     Column(modifier = Modifier.padding(top = 8.dp)) {
         HomeSectionHeader(
@@ -353,14 +402,22 @@ private fun HomeInsightSection(transactions: List<TransactionResponse>) {
             item {
                 InsightCard(
                     title = "Meta más cercana",
-                    status = "Sin metas activas",
+                    status = closestGoal?.name ?: "Sin metas activas",
+                    amount = closestGoal?.let { goal ->
+                        "Faltan ${formatHomeCurrency(closestGoalRemaining ?: 0.0, goal.currency)}"
+                    },
+                    detail = closestGoal?.let { "${formatHomePercent(closestGoalProgress)} completado" },
                     accentColor = HomePalette.Lavender
                 )
             }
             item {
                 InsightCard(
                     title = "Presupuesto en riesgo",
-                    status = "Sin presupuestos activos",
+                    status = riskiestBudget?.nombre ?: "Sin presupuestos activos",
+                    amount = riskiestBudget?.let { budget ->
+                        "Restan ${formatHomeCurrency(riskiestBudgetRemaining ?: 0.0, budget.moneda ?: "C$")}"
+                    },
+                    detail = riskiestBudget?.let { "${formatHomePercent(riskiestBudgetProgress)} usado" },
                     accentColor = HomePalette.Alert
                 )
             }
@@ -376,10 +433,16 @@ private fun InsightCard(
     detail: String? = null,
     accentColor: Color
 ) {
+    val cardWidth = when {
+        amount != null && amount.length > 18 -> 224.dp
+        amount != null && amount.length > 14 -> 208.dp
+        else -> 196.dp
+    }
+
     Card(
         modifier = Modifier
-            .width(164.dp)
-            .height(132.dp),
+            .width(cardWidth)
+            .height(148.dp),
         colors = CardDefaults.cardColors(containerColor = HomePalette.ElevatedCard),
         shape = RoundedCornerShape(24.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, accentColor.copy(alpha = 0.22f)),
@@ -396,7 +459,7 @@ private fun InsightCard(
                         )
                     )
                 )
-                .padding(14.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Box(
@@ -430,12 +493,20 @@ private fun InsightCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 amount?.let {
+                    val amountFontSize = when {
+                        it.length > 18 -> 12.sp
+                        it.length > 14 -> 14.sp
+                        else -> 16.sp
+                    }
+
                     Text(
                         text = it,
+                        modifier = Modifier.fillMaxWidth(),
                         color = HomePalette.TextPrimary,
-                        fontSize = 16.sp,
+                        fontSize = amountFontSize,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
+                        softWrap = false,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -466,7 +537,23 @@ private fun parseTransactionDate(date: String): LocalDate? {
 }
 
 private fun formatHomeCurrency(amount: Double): String {
-    return "C$${String.format(Locale.US, "%.2f", amount)}"
+    return formatHomeCurrency(amount, "C$")
+}
+
+private fun formatHomeCurrency(amount: Double, currency: String): String {
+    return "$currency${String.format(Locale.US, "%.2f", amount)}"
+}
+
+private fun calculateHomeProgress(current: Double, target: Double): Double {
+    return if (target > 0.0) {
+        (current / target).coerceAtLeast(0.0)
+    } else {
+        0.0
+    }
+}
+
+private fun formatHomePercent(progress: Double): String {
+    return "${String.format(Locale.US, "%.0f", progress * 100)}%"
 }
 
 @Composable
@@ -787,6 +874,9 @@ fun AccountPocketCard(
     onClick: () -> Unit
 ) {
     val accountVisual = getAccountVisual(account.name)
+    val savedColor = parseAccountColor(account.color)
+    val accountColor = savedColor ?: accountVisual.color
+    val accountBackgroundColor = savedColor?.copy(alpha = 0.16f) ?: accountVisual.backgroundColor
 
     Card(
         modifier = Modifier
@@ -795,7 +885,7 @@ fun AccountPocketCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = HomePalette.Card),
-        border = androidx.compose.foundation.BorderStroke(1.dp, accountVisual.color.copy(alpha = 0.38f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, accountColor.copy(alpha = 0.38f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 7.dp)
     ) {
         Box(
@@ -803,7 +893,7 @@ fun AccountPocketCard(
                 .fillMaxSize()
                 .background(
                     Brush.linearGradient(
-                        colors = listOf(HomePalette.ElevatedCard, accountVisual.backgroundColor)
+                        colors = listOf(HomePalette.ElevatedCard, HomePalette.Card, accountBackgroundColor)
                     )
                 )
                 .padding(16.dp)
@@ -821,13 +911,13 @@ fun AccountPocketCard(
                         Box(
                             modifier = Modifier
                                 .size(42.dp)
-                                .background(accountVisual.backgroundColor, CircleShape),
+                                .background(accountBackgroundColor, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = accountVisual.icon,
                                 contentDescription = null,
-                                tint = accountVisual.color,
+                                tint = accountColor,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -871,7 +961,7 @@ fun AccountPocketCard(
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .background(accountVisual.color, CircleShape)
+                                .background(accountColor, CircleShape)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Cuenta activa", color = HomePalette.TextSecondary, fontSize = 11.sp)
