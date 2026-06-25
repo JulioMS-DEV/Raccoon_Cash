@@ -462,29 +462,6 @@ private fun calculateBudgetEndDate(startDate: LocalDate, periodType: TipoPeriodo
     }.minusDays(1)
 }
 
-private fun getDefaultTransactionDateForBudget(budget: PresupuestoRespuesta): LocalDate {
-    val startDate = try {
-        LocalDate.parse(budget.fechaInicio, DateTimeFormatter.ISO_LOCAL_DATE)
-    } catch (e: Exception) {
-        return LocalDate.now()
-    }
-    val endDate = calculateBudgetEndDate(startDate, budget.tipoPeriodo, budget.valorPeriodo)
-    val today = LocalDate.now()
-
-    return if (today.isBefore(startDate) || today.isAfter(endDate)) startDate else today
-}
-
-private fun calculateBudgetEndDate(startDate: LocalDate, periodType: TipoPeriodoPresupuesto, periodValue: Int): LocalDate {
-    val value = periodValue.toLong().coerceAtLeast(1)
-    return when (periodType) {
-        TipoPeriodoPresupuesto.DIARIO -> startDate.plusDays(value)
-        TipoPeriodoPresupuesto.SEMANAL -> startDate.plusWeeks(value)
-        TipoPeriodoPresupuesto.MENSUAL -> startDate.plusMonths(value)
-        TipoPeriodoPresupuesto.ANUAL -> startDate.plusYears(value)
-        TipoPeriodoPresupuesto.PERSONALIZADO -> startDate.plusDays(value)
-    }.minusDays(1)
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsTabScreen(
