@@ -25,7 +25,7 @@ public class TransaccionServicio {
     private final TransaccionRepositorio transactionRepository;
     private final CuentaRepositorio accountRepository;
     private final CategoriaRepositorio categoryRepository;
-    private final SavingGoalRepository savingGoalRepository; // Inject SavingGoalRepository
+    private final SavingGoalRepository savingGoalRepository;
 
     public TransaccionServicio(TransaccionRepositorio transactionRepository,
                               CuentaRepositorio accountRepository,
@@ -71,6 +71,7 @@ public class TransaccionServicio {
     @Transactional
     public TransaccionRespuesta updateTransaction(Long id, TransaccionSolicitud request) {
         Transaccion transaction = findActiveTransaction(id);
+        ensureTransactionCanBeManagedDirectly(transaction);
 
         revertTransactionEffect(transaction);
         saveAccountsFor(transaction);
@@ -86,11 +87,18 @@ public class TransaccionServicio {
     @Transactional
     public void deleteTransaction(Long id) {
         Transaccion transaction = findActiveTransaction(id);
+        ensureTransactionCanBeManagedDirectly(transaction);
         revertTransactionEffect(transaction);
         transaction.setActive(false);
 
         saveAccountsFor(transaction);
         transactionRepository.save(transaction);
+    }
+
+    private void ensureTransactionCanBeManagedDirectly(Transaccion transaction) {
+        if (Boolean.TRUE.equals(transaction.getGeneratedByDebtPayment())) {
+            throw new SolicitudIncorrectaException("Las transacciones generadas por pagos de deuda se gestionan desde el modulo de deudas");
+        }
     }
 
     private Transaccion buildTransactionFromRequest(Transaccion transaction, TransaccionSolicitud request) {
@@ -99,14 +107,11 @@ public class TransaccionServicio {
         Cuenta account = findActiveAccount(request.getAccountId(), "Cuenta no encontrada");
         Categoria category = null;
         Cuenta destinationAccount = null;
-        SavingGoal savingGoal = null; // Initialize savingGoal
+        SavingGoal savingGoal = null;
 
         if (request.getSavingGoalId() != null) {
             savingGoal = savingGoalRepository.findById(request.getSavingGoalId())
                     .orElseThrow(() -> new RecursoNoEncontradoException("SavingGoal no encontrada"));
-            // Removed the explicit check for EXPENSE type here.
-            // The transaction type will be stored as sent by the frontend (INCOME),
-            // but its effect on the account balance will be handled in applyTransactionEffect.
         } else if (request.getType() == TipoTransaccion.INCOME || request.getType() == TipoTransaccion.EXPENSE) {
             if (request.getCategoryId() == null) {
                 throw new SolicitudIncorrectaException("La categoria es obligatoria para ingresos y gastos");
@@ -115,7 +120,7 @@ public class TransaccionServicio {
             validateCategoryType(request.getType(), category);
         }
 
-        if (request.getType() == TipoTransaccion.TRANSFER) {
+        if (request.getType() == TipoTransaccion.TRANSFER && savingGoal == null) {
             Long destinationAccountId = request.getResolvedDestinationAccountId();
             if (destinationAccountId == null) {
                 throw new SolicitudIncorrectaException("La cuenta destino es obligatoria para transferencias");
@@ -129,11 +134,11 @@ public class TransaccionServicio {
         transaction.setDescription(request.getDescription());
         transaction.setAmount(request.getAmount());
         transaction.setDate(request.getDate() != null ? request.getDate() : LocalDateTime.now());
-        transaction.setType(request.getType()); // Store the type as sent by the frontend (e.g., INCOME)
+        transaction.setType(request.getType());
         transaction.setAccount(account);
         transaction.setToAccount(destinationAccount);
         transaction.setCategory(category);
-        transaction.setSavingGoal(savingGoal); // Set the saving goal
+        transaction.setSavingGoal(savingGoal);
         transaction.setNotes(request.getNotes());
         transaction.setActive(true);
 
@@ -162,14 +167,12 @@ public class TransaccionServicio {
     }
 
     private void applyTransactionEffect(Transaccion transaction) {
-        // Special handling for saving goal transactions: always deduct from the account
         if (transaction.getSavingGoal() != null) {
             ensureSufficientBalance(transaction.getAccount(), transaction.getAmount());
             transaction.getAccount().setCurrentBalance(currentBalance(transaction.getAccount()).subtract(transaction.getAmount()));
-            return; // Handled
+            return;
         }
 
-        // Original logic for other transaction types
         if (transaction.getType() == TipoTransaccion.INCOME) {
             transaction.getAccount().setCurrentBalance(currentBalance(transaction.getAccount()).add(transaction.getAmount()));
             return;
@@ -189,13 +192,11 @@ public class TransaccionServicio {
     }
 
     private void revertTransactionEffect(Transaccion transaction) {
-        // Special handling for saving goal transactions: always add back to the account
         if (transaction.getSavingGoal() != null) {
             transaction.getAccount().setCurrentBalance(currentBalance(transaction.getAccount()).add(transaction.getAmount()));
-            return; // Handled
+            return;
         }
 
-        // Original logic for other transaction types
         if (transaction.getType() == TipoTransaccion.INCOME) {
             transaction.getAccount().setCurrentBalance(currentBalance(transaction.getAccount()).subtract(transaction.getAmount()));
             return;
@@ -246,13 +247,11 @@ public class TransaccionServicio {
                 .orElseThrow(() -> new RecursoNoEncontradoException("Categoria no encontrada"));
     }
 
-    // New method to get transactions by saving goal ID
     @Transactional(readOnly = true)
     public List<TransaccionRespuesta> getTransactionsBySavingGoalId(Long savingGoalId) {
         SavingGoal savingGoal = savingGoalRepository.findById(savingGoalId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("SavingGoal no encontrada"));
 
-        // Use the correct method name: findBySavingGoalAndActiveTrue
         return transactionRepository.findBySavingGoalAndActiveTrue(savingGoal).stream()
                 .map(TransaccionRespuesta::new)
                 .collect(Collectors.toList());

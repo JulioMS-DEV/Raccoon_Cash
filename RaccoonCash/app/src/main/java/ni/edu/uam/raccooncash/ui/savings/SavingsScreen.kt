@@ -116,7 +116,7 @@ fun SavingGoalItem(goal: SavingGoalResponse, onClick: () -> Unit) {
         LocalDate.now()
     }
     
-    val dateLabel = deadlineDate.format(DateTimeFormatter.ofPattern("d MMM", Locale("es")))
+    val dateLabel = deadlineDate.format(DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("es")))
 
     Card(
         modifier = Modifier
@@ -170,13 +170,13 @@ fun SavingGoalItem(goal: SavingGoalResponse, onClick: () -> Unit) {
                 verticalAlignment = Alignment.Bottom
             ) {
                 Text(
-                    text = "${goal.currency}${String.format("%.0f", goal.currentAmount)}",
+                    text = "${goal.currency}${String.format(Locale.getDefault(), "%.0f", goal.currentAmount)}",
                     color = Color.White,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = " / ${goal.currency}${String.format("%.0f", goal.targetAmount)}",
+                    text = " / ${goal.currency}${String.format(Locale.getDefault(), "%.0f", goal.targetAmount)}",
                     color = Color.Gray,
                     fontSize = 18.sp,
                     modifier = Modifier.padding(bottom = 2.dp)

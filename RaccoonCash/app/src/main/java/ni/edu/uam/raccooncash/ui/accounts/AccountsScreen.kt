@@ -2,14 +2,11 @@ package ni.edu.uam.raccooncash.ui.accounts
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ni.edu.uam.raccooncash.data.model.AccountResponse
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
+import ni.edu.uam.raccooncash.ui.components.RaccAddFloatingActionButton
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -82,13 +80,10 @@ fun AccountsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            RaccAddFloatingActionButton(
                 onClick = onAddTransactionClick,
-                containerColor = Color(0xFFE1D5F9),
-                contentColor = Color.Black
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Nueva Transacción")
-            }
+                contentDescription = "Nueva Transacción"
+            )
         }
     ) { paddingValues ->
         LazyColumn(
@@ -157,9 +152,9 @@ fun AccountsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val dateLabel = when (date) {
-                                LocalDate.now() -> "Hoy, ${date.format(DateTimeFormatter.ofPattern("d 'de' MMMM", Locale("es")))}"
-                                LocalDate.now().minusDays(1) -> "Ayer, ${date.format(DateTimeFormatter.ofPattern("d 'de' MMMM", Locale("es")))}"
-                                else -> date.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", Locale("es")))
+                                LocalDate.now() -> "Hoy, ${date.format(DateTimeFormatter.ofPattern("d 'de' MMMM", Locale.forLanguageTag("es")))}"
+                                LocalDate.now().minusDays(1) -> "Ayer, ${date.format(DateTimeFormatter.ofPattern("d 'de' MMMM", Locale.forLanguageTag("es")))}"
+                                else -> date.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", Locale.forLanguageTag("es")))
                             }
                             Text(
                                 text = dateLabel.replaceFirstChar { it.uppercase() },
@@ -169,7 +164,7 @@ fun AccountsScreen(
                             
                             if (dailySum != 0.0) {
                                 Text(
-                                    text = "${if (dailySum > 0) "+" else ""}C$${String.format("%.2f", dailySum)}",
+                                    text = "${if (dailySum > 0) "+" else ""}C$${String.format(Locale.getDefault(), "%.2f", dailySum)}",
                                     color = Color.Gray,
                                     fontSize = 14.sp
                                 )
@@ -511,7 +506,7 @@ fun TransactionItem(
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = "$prefix ${getCurrencySymbol(transaction)} ${String.format("%.2f", transaction.amount)}",
+                text = "$prefix C$ ${String.format(Locale.getDefault(), "%.2f", transaction.amount)}",
                 color = amountColor,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
@@ -527,13 +522,7 @@ fun TransactionItem(
     }
 }
 
-fun getCurrencySymbol(transaction: TransactionResponse): String {
-    return "C$" 
-}
-
 fun getEmojiForCategory(categoryName: String?, serverIcon: String?): String {
-    if (serverIcon != null && serverIcon.length <= 2) return serverIcon
-    
     // Mapeo basado en el identificador de icono del servidor
     val iconMapping = mapOf(
         "utensils" to "🍴",
@@ -559,8 +548,10 @@ fun getEmojiForCategory(categoryName: String?, serverIcon: String?): String {
         "wrench" to "🔧"
     )
 
-    if (serverIcon != null && iconMapping.containsKey(serverIcon.lowercase())) {
-        return iconMapping[serverIcon.lowercase()]!!
+    val normalizedServerIcon = serverIcon?.trim()
+    if (!normalizedServerIcon.isNullOrEmpty()) {
+        iconMapping[normalizedServerIcon.lowercase()]?.let { return it }
+        if (normalizedServerIcon.isCustomEmojiValue()) return normalizedServerIcon
     }
 
     return when (categoryName?.lowercase()) {
@@ -588,6 +579,17 @@ fun getEmojiForCategory(categoryName: String?, serverIcon: String?): String {
         "otros" -> "📝"
         "corrección de saldo" -> "⚖️"
         else -> "📝"
+    }
+}
+
+private fun String.isCustomEmojiValue(): Boolean {
+    return any { char ->
+        val type = Character.getType(char)
+        type == Character.SURROGATE.toInt() ||
+            type == Character.OTHER_SYMBOL.toInt() ||
+            type == Character.NON_SPACING_MARK.toInt() ||
+            char == '\uFE0F' ||
+            char == '\u200D'
     }
 }
 

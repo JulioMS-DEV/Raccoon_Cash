@@ -1,7 +1,7 @@
 package com.raccooncash.api.savinggoal;
 
 import com.raccooncash.api.transaccion.Transaccion;
-import com.raccooncash.api.transaccion.TransaccionRepositorio; // Assuming this is the transaction repository
+import com.raccooncash.api.transaccion.TransaccionRepositorio;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +17,7 @@ public class SavingGoalService {
     private SavingGoalRepository savingGoalRepository;
 
     @Autowired
-    private TransaccionRepositorio transaccionRepositorio; // Inject the transaction repository
+    private TransaccionRepositorio transaccionRepositorio;
 
     public List<SavingGoalResponse> getAllSavingGoals() {
         return savingGoalRepository.findAll().stream()
@@ -31,7 +31,6 @@ public class SavingGoalService {
     }
 
     public SavingGoal createSavingGoal(SavingGoal savingGoal) {
-        // When creating, currentAmount is always 0.0, and transactions are empty
         return savingGoalRepository.save(savingGoal);
     }
 
@@ -47,15 +46,6 @@ public class SavingGoalService {
         savingGoal.setIcon(savingGoalDetails.getIcon());
         savingGoal.setCurrency(savingGoalDetails.getCurrency());
 
-        // If currentAmount is provided in details, it means an update to progress
-        // This implies a transaction should be created or adjusted.
-        // For simplicity, if currentAmount is provided, we assume it's the new total
-        // and we don't automatically create transactions here.
-        // The client app should create transactions to update currentAmount.
-        // The currentAmount in the DTO is calculated from transactions.
-        // If the request body for PUT includes currentAmount, it's ignored here
-        // as it's a calculated field. The app should send transactions to update progress.
-
         return savingGoalRepository.save(savingGoal);
     }
 
@@ -64,7 +54,6 @@ public class SavingGoalService {
     }
 
     private SavingGoalResponse convertToDto(SavingGoal savingGoal) {
-        // Use findBySavingGoalAndActiveTrue to only sum active transactions
         List<Transaccion> activeTransactions = transaccionRepositorio.findBySavingGoalAndActiveTrue(savingGoal);
 
         Double currentAmount = activeTransactions.stream()

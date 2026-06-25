@@ -23,10 +23,6 @@ public class PresupuestoRespuesta {
     public PresupuestoRespuesta() {
     }
 
-    public PresupuestoRespuesta(Presupuesto budget) {
-        this(budget, BigDecimal.ZERO);
-    }
-
     public PresupuestoRespuesta(Presupuesto budget, BigDecimal montoActual) {
         this.id = budget.getId();
         this.nombre = budget.getName();

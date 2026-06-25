@@ -8,8 +8,6 @@ class RaccoonRepository {
 
     suspend fun getAccounts() = apiService.getAccounts()
 
-    suspend fun getAccountById(id: Long) = apiService.getAccountById(id)
-
     suspend fun createAccount(request: AccountRequest) = apiService.createAccount(request)
 
     suspend fun updateAccount(id: Long, request: AccountRequest) = apiService.updateAccount(id, request)
@@ -24,6 +22,31 @@ class RaccoonRepository {
     suspend fun updateTransaction(id: Long, request: TransactionRequest) = apiService.updateTransaction(id, request)
 
     suspend fun deleteTransaction(id: Long) = apiService.deleteTransaction(id)
+
+    // Debts
+    suspend fun getDebts(
+        type: String? = null,
+        status: String? = null,
+        accountId: Long? = null,
+        dueFrom: String? = null,
+        dueTo: String? = null,
+        overdue: Boolean? = null,
+        search: String? = null
+    ) = apiService.getDebts(type, status, accountId, dueFrom, dueTo, overdue, search)
+
+    suspend fun getDebtById(id: Long) = apiService.getDebtById(id)
+
+    suspend fun createDebt(request: DebtRequest) = apiService.createDebt(request)
+
+    suspend fun updateDebt(id: Long, request: DebtRequest) = apiService.updateDebt(id, request)
+
+    suspend fun deleteDebt(id: Long) = apiService.deleteDebt(id)
+
+    suspend fun getDebtPayments(id: Long) = apiService.getDebtPayments(id)
+
+    suspend fun createDebtPayment(id: Long, request: DebtPaymentRequest) = apiService.createDebtPayment(id, request)
+
+    suspend fun deleteDebtPayment(id: Long, paymentId: Long) = apiService.deleteDebtPayment(id, paymentId)
 
     // Categories
     suspend fun getCategories() = apiService.getCategories()
@@ -47,6 +70,14 @@ class RaccoonRepository {
 
     // Budgets
     suspend fun getBudgets() = apiService.getBudgets()
+
+    suspend fun getBudgetCategoryLimits(id: Long) = apiService.getBudgetCategoryLimits(id)
+
+    suspend fun createBudgetCategoryLimit(id: Long, request: BudgetCategoryLimitRequest) = apiService.createBudgetCategoryLimit(id, request)
+
+    suspend fun updateBudgetCategoryLimit(budgetId: Long, limitId: Long, request: BudgetCategoryLimitRequest) = apiService.updateBudgetCategoryLimit(budgetId, limitId, request)
+
+    suspend fun deleteBudgetCategoryLimit(budgetId: Long, limitId: Long) = apiService.deleteBudgetCategoryLimit(budgetId, limitId)
 
     suspend fun createBudget(request: PresupuestoSolicitud) = apiService.createBudget(request)
 

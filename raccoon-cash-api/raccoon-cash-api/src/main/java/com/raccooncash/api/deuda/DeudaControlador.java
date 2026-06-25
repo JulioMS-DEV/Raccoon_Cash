@@ -1,6 +1,7 @@
 package com.raccooncash.api.deuda;
 
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,8 +10,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -24,8 +27,20 @@ public class DeudaControlador {
     }
 
     @GetMapping
-    public ResponseEntity<List<DeudaRespuesta>> getAllDebts() {
-        return ResponseEntity.ok(debtService.getAllDebts());
+    public ResponseEntity<List<DeudaRespuesta>> getAllDebts(
+            @RequestParam(required = false) TipoDeuda type,
+            @RequestParam(required = false) EstadoDeuda status,
+            @RequestParam(required = false) Long accountId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo,
+            @RequestParam(required = false) Boolean overdue,
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(debtService.getAllDebts(type, status, accountId, dueFrom, dueTo, overdue, search));
+    }
+
+    @GetMapping("/reminders")
+    public ResponseEntity<List<DeudaRespuesta>> getPendingReminders() {
+        return ResponseEntity.ok(debtService.getPendingReminders());
     }
 
     @GetMapping("/{id}")
@@ -57,5 +72,11 @@ public class DeudaControlador {
     @GetMapping("/{id}/payments")
     public ResponseEntity<List<PagoDeudaRespuesta>> getPayments(@PathVariable Long id) {
         return ResponseEntity.ok(debtService.getPayments(id));
+    }
+
+    @DeleteMapping("/{id}/payments/{paymentId}")
+    public ResponseEntity<Void> deletePayment(@PathVariable Long id, @PathVariable Long paymentId) {
+        debtService.deletePayment(id, paymentId);
+        return ResponseEntity.noContent().build();
     }
 }

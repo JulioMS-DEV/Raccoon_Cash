@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ni.edu.uam.raccooncash.data.model.PresupuestoRespuesta
+import ni.edu.uam.raccooncash.ui.components.RaccAddFloatingActionButton
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,14 +36,10 @@ fun BudgetsScreen(
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(
+            RaccAddFloatingActionButton(
                 onClick = onAddBudgetClick,
-                containerColor = Color(0xFFD1C4E9),
-                contentColor = Color.Black,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Añadir presupuesto")
-            }
+                contentDescription = "Añadir presupuesto"
+            )
         }
     ) { paddingValues ->
         Column(

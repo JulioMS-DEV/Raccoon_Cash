@@ -1,6 +1,6 @@
 package com.raccooncash.api.transaccion;
 
-import com.raccooncash.api.savinggoal.SavingGoal; // Import SavingGoal
+import com.raccooncash.api.savinggoal.SavingGoal;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,8 +11,6 @@ import java.util.Optional;
 
 @Repository
 public interface TransaccionRepositorio extends JpaRepository<Transaccion, Long>, TransaccionRepositorioPersonalizado {
-    List<Transaccion> findAllByActiveTrueOrderByDateDesc();
-
     @Query("""
             SELECT t FROM TransaccionFinanciera t
             JOIN FETCH t.account account
@@ -23,6 +21,5 @@ public interface TransaccionRepositorio extends JpaRepository<Transaccion, Long>
             """)
     Optional<Transaccion> findActiveById(@Param("id") Long id);
 
-    // Modified method to find only active transactions by saving goal
     List<Transaccion> findBySavingGoalAndActiveTrue(SavingGoal savingGoal);
 }

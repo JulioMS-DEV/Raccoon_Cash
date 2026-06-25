@@ -2,7 +2,6 @@ package ni.edu.uam.raccooncash.ui.savings
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,13 +21,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ni.edu.uam.raccooncash.data.model.SavingGoalResponse
 import ni.edu.uam.raccooncash.ui.accounts.TransactionItem
-import ni.edu.uam.raccooncash.ui.accounts.getEmojiForCategory
 import ni.edu.uam.raccooncash.ui.accounts.AccountsViewModel
+import ni.edu.uam.raccooncash.ui.components.RaccAddFloatingActionButton
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -37,7 +35,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavingGoalDetailsScreen(
-    goalId: Long, // Changed from goal: SavingGoalResponse to goalId: Long
+    goalId: Long,
     viewModel: SavingsViewModel,
     accountsViewModel: AccountsViewModel,
     onAddTransaction: () -> Unit,
@@ -51,7 +49,6 @@ fun SavingGoalDetailsScreen(
     val transactions by viewModel.currentGoalTransactions.collectAsState()
     val accounts by accountsViewModel.accounts.collectAsState()
     val categories by accountsViewModel.categories.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
 
     LaunchedEffect(goalId) {
         viewModel.loadGoalTransactions(goalId)
@@ -92,9 +89,6 @@ fun SavingGoalDetailsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Search */ }) {
-                        Icon(Icons.Default.Search, contentDescription = "Buscar")
-                    }
                     IconButton(onClick = onEditGoal) {
                         Icon(Icons.Default.Edit, contentDescription = "Editar")
                     }
@@ -106,14 +100,10 @@ fun SavingGoalDetailsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            RaccAddFloatingActionButton(
                 onClick = onAddTransaction,
-                containerColor = Color(0xFFD1C4E9),
-                contentColor = Color.Black,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar Ahorro")
-            }
+                contentDescription = "Agregar Ahorro"
+            )
         }
     ) { padding ->
         LazyColumn(
@@ -142,7 +132,7 @@ fun SavingGoalDetailsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = deadlineDate.format(DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale("es"))),
+                        text = deadlineDate.format(DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale.forLanguageTag("es"))),
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -170,7 +160,7 @@ fun SavingGoalDetailsScreen(
                             Column {
                                 Text("Ahorro diario necesario", color = Color.Gray, fontSize = 12.sp)
                                 Text(
-                                    "${goal.currency}${String.format("%.2f", dailyNeeded)}",
+                                    "${goal.currency}${String.format(Locale.getDefault(), "%.2f", dailyNeeded)}",
                                     color = Color.White,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
@@ -189,7 +179,6 @@ fun SavingGoalDetailsScreen(
                             .padding(top = 40.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Image placeholder as in screenshot
                         Box(
                             modifier = Modifier.size(200.dp),
                             contentAlignment = Alignment.Center
@@ -254,13 +243,13 @@ fun GoalProgressCircle(goal: SavingGoalResponse, color: Color) {
             )
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = "${goal.currency}${String.format("%.0f", goal.currentAmount)}",
+                    text = "${goal.currency}${String.format(Locale.getDefault(), "%.0f", goal.currentAmount)}",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 Text(
-                    text = " / ${goal.currency}${String.format("%.0f", goal.targetAmount)}",
+                    text = " / ${goal.currency}${String.format(Locale.getDefault(), "%.0f", goal.targetAmount)}",
                     fontSize = 14.sp,
                     color = Color.Gray,
                     modifier = Modifier.padding(bottom = 2.dp)

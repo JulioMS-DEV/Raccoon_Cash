@@ -45,6 +45,7 @@ public class CargadorCategoriasPredeterminadas implements ApplicationRunner {
             expense("Otros", "#71717a", "circle-ellipsis"),
             expense("Correcci\u00f3n de saldo", "#0891b2", "scale"),
             income("Trabajo", "#16a34a", "briefcase"),
+            income("Pagos", "#22c55e", "hand-coins"),
             income("Regalos", "#db2777", "gift"),
             income("Otros", "#52525b", "circle-ellipsis"),
             income("Correcci\u00f3n de saldo", "#0284c7", "scale")

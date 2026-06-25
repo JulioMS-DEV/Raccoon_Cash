@@ -1,7 +1,7 @@
 package com.raccooncash.api.transaccion;
 import com.raccooncash.api.cuenta.Cuenta;
 import com.raccooncash.api.categoria.Categoria;
-import com.raccooncash.api.savinggoal.SavingGoal; // Import SavingGoal
+import com.raccooncash.api.savinggoal.SavingGoal;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -41,11 +41,12 @@ public class Transaccion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Categoria category;
-    @ManyToOne(fetch = FetchType.LAZY) // Many transactions can belong to one saving goal
-    @JoinColumn(name = "saving_goal_id") // Optional, so nullable by default
-    private SavingGoal savingGoal; // New field for saving goal
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "saving_goal_id")
+    private SavingGoal savingGoal;
     private String notes;
     private Boolean active = true;
+    private Boolean generatedByDebtPayment = false;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     @PrePersist
@@ -57,6 +58,9 @@ public class Transaccion {
         }
         if (active == null) {
             active = true;
+        }
+        if (generatedByDebtPayment == null) {
+            generatedByDebtPayment = false;
         }
     }
     @PreUpdate
@@ -111,7 +115,6 @@ public class Transaccion {
     public void setCategory(Categoria category) {
         this.category = category;
     }
-    // Getter and Setter for savingGoal
     public SavingGoal getSavingGoal() {
         return savingGoal;
     }
@@ -129,6 +132,12 @@ public class Transaccion {
     }
     public void setActive(Boolean active) {
         this.active = active;
+    }
+    public Boolean getGeneratedByDebtPayment() {
+        return generatedByDebtPayment;
+    }
+    public void setGeneratedByDebtPayment(Boolean generatedByDebtPayment) {
+        this.generatedByDebtPayment = generatedByDebtPayment;
     }
     public LocalDateTime getCreatedAt() {
         return createdAt;

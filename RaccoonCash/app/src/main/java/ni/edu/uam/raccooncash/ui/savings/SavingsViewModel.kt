@@ -67,6 +67,7 @@ class SavingsViewModel : ViewModel() {
         _isLoading.value = true
         try {
             _currentGoalTransactions.value = repository.getSavingGoalTransactions(goalId)
+            _error.value = null
         } catch (e: Exception) {
             _error.value = "Error al cargar transacciones: ${e.message}"
         } finally {
@@ -144,6 +145,8 @@ class SavingsViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             _isLoading.value = true
+            _addTransactionSuccess.value = false
+            _error.value = null
             try {
                 val request = TransactionRequest(
                     amount = amount,
@@ -155,9 +158,9 @@ class SavingsViewModel : ViewModel() {
                     savingGoalId = goalId
                 )
                 repository.createTransaction(request)
-                _addTransactionSuccess.value = true
                 loadGoalTransactionsSuspend(goalId)
                 loadSavingGoalsSuspend()
+                _addTransactionSuccess.value = true
             } catch (e: Exception) {
                 _error.value = "Error al registrar ahorro: ${e.message}"
             } finally {
@@ -177,6 +180,8 @@ class SavingsViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             _isLoading.value = true
+            _addTransactionSuccess.value = false
+            _error.value = null
             try {
                 val request = TransactionRequest(
                     amount = amount,
@@ -188,9 +193,9 @@ class SavingsViewModel : ViewModel() {
                     savingGoalId = goalId
                 )
                 repository.updateTransaction(transactionId, request)
-                _addTransactionSuccess.value = true
                 loadGoalTransactionsSuspend(goalId)
                 loadSavingGoalsSuspend()
+                _addTransactionSuccess.value = true
             } catch (e: Exception) {
                 _error.value = "Error al actualizar ahorro: ${e.message}"
             } finally {
@@ -202,6 +207,8 @@ class SavingsViewModel : ViewModel() {
     fun deleteTransaction(transactionId: Long, goalId: Long) {
         viewModelScope.launch {
             _isLoading.value = true
+            _addTransactionSuccess.value = false
+            _error.value = null
             try {
                 repository.deleteTransaction(transactionId)
                 // Clear the current list immediately to give instant feedback

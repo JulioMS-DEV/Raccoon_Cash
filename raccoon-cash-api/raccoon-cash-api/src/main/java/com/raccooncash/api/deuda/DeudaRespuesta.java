@@ -14,8 +14,11 @@ public class DeudaRespuesta {
     private TipoDeuda type;
     private EstadoDeuda status;
     private LocalDate dueDate;
+    private Boolean overdue;
     private Long accountId;
     private String accountName;
+    private Boolean reminderEnabled;
+    private LocalDateTime reminderAt;
     private Boolean active;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -33,8 +36,14 @@ public class DeudaRespuesta {
         this.type = debt.getType();
         this.status = debt.getStatus();
         this.dueDate = debt.getDueDate();
+        this.overdue = debt.getDueDate() != null
+                && debt.getDueDate().isBefore(LocalDate.now())
+                && debt.getStatus() != EstadoDeuda.PAID
+                && debt.getStatus() != EstadoDeuda.CANCELLED;
         this.accountId = debt.getAccount().getId();
         this.accountName = debt.getAccount().getName();
+        this.reminderEnabled = Boolean.TRUE.equals(debt.getReminderEnabled());
+        this.reminderAt = debt.getReminderAt();
         this.active = debt.getActive();
         this.createdAt = debt.getCreatedAt();
         this.updatedAt = debt.getUpdatedAt();
@@ -112,6 +121,14 @@ public class DeudaRespuesta {
         this.dueDate = dueDate;
     }
 
+    public Boolean getOverdue() {
+        return overdue;
+    }
+
+    public void setOverdue(Boolean overdue) {
+        this.overdue = overdue;
+    }
+
     public Long getAccountId() {
         return accountId;
     }
@@ -126,6 +143,22 @@ public class DeudaRespuesta {
 
     public void setAccountName(String accountName) {
         this.accountName = accountName;
+    }
+
+    public Boolean getReminderEnabled() {
+        return reminderEnabled;
+    }
+
+    public void setReminderEnabled(Boolean reminderEnabled) {
+        this.reminderEnabled = reminderEnabled;
+    }
+
+    public LocalDateTime getReminderAt() {
+        return reminderAt;
+    }
+
+    public void setReminderAt(LocalDateTime reminderAt) {
+        this.reminderAt = reminderAt;
     }
 
     public Boolean getActive() {

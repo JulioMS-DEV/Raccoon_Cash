@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public class DeudaSolicitud {
 
@@ -25,6 +26,10 @@ public class DeudaSolicitud {
 
     @NotNull(message = "La cuenta es obligatoria")
     private Long accountId;
+
+    private Boolean reminderEnabled;
+
+    private LocalDateTime reminderAt;
 
     public String getPersonName() {
         return personName;
@@ -72,5 +77,21 @@ public class DeudaSolicitud {
 
     public void setAccountId(Long accountId) {
         this.accountId = accountId;
+    }
+
+    public Boolean getReminderEnabled() {
+        return reminderEnabled;
+    }
+
+    public void setReminderEnabled(Boolean reminderEnabled) {
+        this.reminderEnabled = reminderEnabled;
+    }
+
+    public LocalDateTime getReminderAt() {
+        return reminderAt;
+    }
+
+    public void setReminderAt(LocalDateTime reminderAt) {
+        this.reminderAt = reminderAt;
     }
 }

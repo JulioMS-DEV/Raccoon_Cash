@@ -1,9 +1,9 @@
 package com.raccooncash.api.savinggoal;
 
-import com.raccooncash.api.transaccion.Transaccion; // Import Transaccion
+import com.raccooncash.api.transaccion.Transaccion;
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.util.Set; // Import Set
+import java.util.Set;
 
 @Entity
 public class SavingGoal {
@@ -12,16 +12,14 @@ public class SavingGoal {
     private Long id;
     private String name;
     private Double targetAmount;
-    // currentAmount will be calculated dynamically, so remove it from here
     private LocalDate deadline;
     private String color;
-    private String icon; // Ensure this field exists for the emoji
+    private String icon;
     private String currency;
 
     @OneToMany(mappedBy = "savingGoal", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Set<Transaccion> transactions; // One saving goal can have many transactions
+    private Set<Transaccion> transactions;
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -45,15 +43,6 @@ public class SavingGoal {
     public void setTargetAmount(Double targetAmount) {
         this.targetAmount = targetAmount;
     }
-
-    // Remove getCurrentAmount and setCurrentAmount as it's dynamic
-    // public Double getCurrentAmount() {
-    //     return currentAmount;
-    // }
-    //
-    // public void setCurrentAmount(Double currentAmount) {
-    //     this.currentAmount = currentAmount;
-    // }
 
     public LocalDate getDeadline() {
         return deadline;

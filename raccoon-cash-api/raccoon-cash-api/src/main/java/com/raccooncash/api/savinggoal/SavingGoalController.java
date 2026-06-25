@@ -16,7 +16,7 @@ public class SavingGoalController {
     private SavingGoalService savingGoalService;
 
     @Autowired
-    private TransaccionServicio transaccionServicio; // Inject TransaccionServicio
+    private TransaccionServicio transaccionServicio;
 
     @GetMapping
     public List<SavingGoalResponse> getAllSavingGoals() {
@@ -51,13 +51,9 @@ public class SavingGoalController {
         return ResponseEntity.noContent().build();
     }
 
-    // New endpoint to get transactions for a specific saving goal
     @GetMapping("/{id}/transactions")
     public ResponseEntity<List<TransaccionRespuesta>> getTransactionsBySavingGoalId(@PathVariable Long id) {
         List<TransaccionRespuesta> transactions = transaccionServicio.getTransactionsBySavingGoalId(id);
-        if (transactions.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
         return ResponseEntity.ok(transactions);
     }
 }

@@ -3,7 +3,6 @@ package ni.edu.uam.raccooncash.ui.accounts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -79,7 +78,6 @@ fun AddAccountScreen(
     var searchQuery by remember { mutableStateOf("") }
     
     val success by viewModel.addAccountSuccess.collectAsState()
-    val isDark = isSystemInDarkTheme()
     
     LaunchedEffect(success) {
         if (success) {

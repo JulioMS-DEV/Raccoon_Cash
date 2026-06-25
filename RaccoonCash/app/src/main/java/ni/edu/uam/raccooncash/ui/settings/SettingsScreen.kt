@@ -9,11 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,14 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onSecurityClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -55,43 +51,15 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Sección de Perfil / Cuenta
-            SettingsSection(title = "Cuenta") {
-                SettingsItem(
-                    icon = Icons.Default.Person,
-                    title = "Perfil de Usuario",
-                    subtitle = "Fernando",
-                    onClick = { /* TODO */ }
-                )
-            }
-
-            // Sección de Preferencias
             SettingsSection(title = "Preferencias") {
-                SettingsItem(
-                    icon = Icons.Default.Notifications,
-                    title = "Notificaciones",
-                    subtitle = "Gestionar alertas de gastos",
-                    onClick = { /* TODO */ }
-                )
                 SettingsItem(
                     icon = Icons.Default.Lock,
                     title = "Seguridad",
-                    subtitle = "PIN y Huella dactilar",
-                    onClick = { /* TODO */ }
+                    subtitle = "Bloqueo con PIN",
+                    onClick = onSecurityClick
                 )
             }
 
-            // Sección de Información
-            SettingsSection(title = "Información") {
-                SettingsItem(
-                    icon = Icons.Default.Info,
-                    title = "Acerca de Raccoon Cash",
-                    subtitle = "Versión 1.0.0",
-                    onClick = { /* TODO */ }
-                )
-            }
-
-            // Derechos de Autor y Créditos
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

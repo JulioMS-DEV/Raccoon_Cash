@@ -6,9 +6,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,8 +13,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,6 +30,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import ni.edu.uam.raccooncash.ui.accounts.accountColors
+import ni.edu.uam.raccooncash.ui.components.EmojiPickerDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -327,7 +323,7 @@ fun AddSavingGoalScreen(
                     HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = Color.Gray.copy(alpha = 0.2f))
                     
                     Text(
-                        text = deadline.format(DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale("es"))),
+                        text = deadline.format(DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale.forLanguageTag("es"))),
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -350,48 +346,11 @@ fun AddSavingGoalScreen(
     if (showEmojiPicker) {
         EmojiPickerDialog(
             onDismiss = { showEmojiPicker = false },
+            title = "Elige un emoji para la meta",
             onEmojiSelected = { 
                 selectedEmoji = it
                 showEmojiPicker = false
             }
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun EmojiPickerDialog(
-    onDismiss: () -> Unit,
-    onEmojiSelected: (String) -> Unit
-) {
-    val emojis = listOf(
-        "💰", "🏖️", "🚗", "🏠", "🎁", "✈️", "🎓", "💍", "📱", "💻", "🎮", "🎸", "🚲", "⌚", "🏢", "🚢", "🏗️", "🚒", "🚑", "🚀"
-    )
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFF0F111A)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Elige Un Icono", style = MaterialTheme.typography.headlineMedium, color = Color.White, modifier = Modifier.padding(bottom = 16.dp))
-            
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(5),
-                modifier = Modifier.heightIn(max = 400.dp),
-                contentPadding = PaddingValues(8.dp)
-            ) {
-                items(emojis) { emoji ->
-                    Box(
-                        modifier = Modifier
-                            .size(60.dp)
-                            .clickable { onEmojiSelected(emoji) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(emoji, fontSize = 32.sp)
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-        }
     }
 }

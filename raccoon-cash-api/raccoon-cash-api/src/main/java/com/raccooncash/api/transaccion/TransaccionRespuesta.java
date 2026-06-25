@@ -15,9 +15,10 @@ public class TransaccionRespuesta {
     private String toAccountName;
     private Long categoryId;
     private String categoryName;
-    private Long savingGoalId; // New field for saving goal ID
+    private Long savingGoalId;
     private String notes;
     private Boolean active;
+    private Boolean generatedByDebtPayment;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     public TransaccionRespuesta() {
@@ -32,6 +33,7 @@ public class TransaccionRespuesta {
         this.accountName = transaction.getAccount().getName();
         this.notes = transaction.getNotes();
         this.active = transaction.getActive();
+        this.generatedByDebtPayment = Boolean.TRUE.equals(transaction.getGeneratedByDebtPayment());
         this.createdAt = transaction.getCreatedAt();
         this.updatedAt = transaction.getUpdatedAt();
         if (transaction.getToAccount() != null) {
@@ -44,7 +46,7 @@ public class TransaccionRespuesta {
             this.categoryId = transaction.getCategory().getId();
             this.categoryName = transaction.getCategory().getName();
         }
-        if (transaction.getSavingGoal() != null) { // Set savingGoalId if present
+        if (transaction.getSavingGoal() != null) {
             this.savingGoalId = transaction.getSavingGoal().getId();
         }
     }
@@ -126,7 +128,6 @@ public class TransaccionRespuesta {
     public void setCategoryName(String categoryName) {
         this.categoryName = categoryName;
     }
-    // Getter and Setter for savingGoalId
     public Long getSavingGoalId() {
         return savingGoalId;
     }
@@ -144,6 +145,12 @@ public class TransaccionRespuesta {
     }
     public void setActive(Boolean active) {
         this.active = active;
+    }
+    public Boolean getGeneratedByDebtPayment() {
+        return generatedByDebtPayment;
+    }
+    public void setGeneratedByDebtPayment(Boolean generatedByDebtPayment) {
+        this.generatedByDebtPayment = generatedByDebtPayment;
     }
     public LocalDateTime getCreatedAt() {
         return createdAt;

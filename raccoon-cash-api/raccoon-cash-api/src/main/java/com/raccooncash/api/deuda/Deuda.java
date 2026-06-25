@@ -9,6 +9,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -20,7 +21,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "debts")
+@Table(name = "debts", indexes = {
+        @Index(name = "idx_debts_active", columnList = "active"),
+        @Index(name = "idx_debts_type", columnList = "type"),
+        @Index(name = "idx_debts_status", columnList = "status"),
+        @Index(name = "idx_debts_due_date", columnList = "due_date"),
+        @Index(name = "idx_debts_account_id", columnList = "account_id")
+})
 public class Deuda {
 
     @Id
@@ -32,13 +39,13 @@ public class Deuda {
 
     private String description;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal totalAmount;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal paidAmount;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal remainingAmount;
 
     @Enumerated(EnumType.STRING)
@@ -54,6 +61,10 @@ public class Deuda {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = false)
     private Cuenta account;
+
+    private Boolean reminderEnabled = false;
+
+    private LocalDateTime reminderAt;
 
     @Column(nullable = false)
     private Boolean active = true;
@@ -73,6 +84,9 @@ public class Deuda {
         }
         if (status == null) {
             status = EstadoDeuda.PENDING;
+        }
+        if (reminderEnabled == null) {
+            reminderEnabled = false;
         }
         if (active == null) {
             active = true;
@@ -162,6 +176,22 @@ public class Deuda {
 
     public void setAccount(Cuenta account) {
         this.account = account;
+    }
+
+    public Boolean getReminderEnabled() {
+        return reminderEnabled;
+    }
+
+    public void setReminderEnabled(Boolean reminderEnabled) {
+        this.reminderEnabled = reminderEnabled;
+    }
+
+    public LocalDateTime getReminderAt() {
+        return reminderAt;
+    }
+
+    public void setReminderAt(LocalDateTime reminderAt) {
+        this.reminderAt = reminderAt;
     }
 
     public Boolean getActive() {

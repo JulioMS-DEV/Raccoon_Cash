@@ -23,12 +23,8 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun RaccoonCashTheme(
-    // Parámetros ignorados para mantener compatibilidad con las llamadas existentes
-    darkTheme: Boolean = true,
-    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    // Forzamos siempre el esquema oscuro
     MaterialTheme(
         colorScheme = DarkColorScheme,
         typography = Typography,

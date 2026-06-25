@@ -13,6 +13,10 @@ public class PagoDeudaSolicitud {
     private BigDecimal amount;
 
     private LocalDate paymentDate;
+
+    @NotNull(message = "La cuenta es obligatoria")
+    private Long accountId;
+
     private String notes;
 
     public BigDecimal getAmount() {
@@ -29,6 +33,14 @@ public class PagoDeudaSolicitud {
 
     public void setPaymentDate(LocalDate paymentDate) {
         this.paymentDate = paymentDate;
+    }
+
+    public Long getAccountId() {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) {
+        this.accountId = accountId;
     }
 
     public String getNotes() {

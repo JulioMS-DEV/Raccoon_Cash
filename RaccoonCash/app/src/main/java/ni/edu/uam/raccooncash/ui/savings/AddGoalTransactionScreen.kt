@@ -1,18 +1,15 @@
 package ni.edu.uam.raccooncash.ui.savings
 
 import android.app.DatePickerDialog
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +24,9 @@ import androidx.compose.ui.unit.sp
 import ni.edu.uam.raccooncash.data.model.SavingGoalResponse
 import ni.edu.uam.raccooncash.ui.accounts.AccountChip
 import ni.edu.uam.raccooncash.ui.accounts.AccountsViewModel
+import ni.edu.uam.raccooncash.util.formatEditableMoney
+import ni.edu.uam.raccooncash.util.isPotentialMoneyInput
+import ni.edu.uam.raccooncash.util.parseMoneyInput
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -46,11 +46,14 @@ fun AddGoalTransactionScreen(
     val accounts by accountsViewModel.accounts.collectAsState()
     val isLoading by savingsViewModel.isLoading.collectAsState()
     val success by savingsViewModel.addTransactionSuccess.collectAsState()
+    val error by savingsViewModel.error.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    var amount by remember { mutableStateOf(transactionToEdit?.amount?.toString() ?: "") }
+    var amount by remember(transactionToEdit?.id) { mutableStateOf(formatEditableMoney(transactionToEdit?.amount)) }
     var title by remember { mutableStateOf(transactionToEdit?.description ?: "Ahorro para ${goal.name}") }
     var notes by remember { mutableStateOf(transactionToEdit?.notes ?: "") }
     var selectedAccountId by remember { mutableStateOf<Long?>(transactionToEdit?.accountId) }
+    var hasSubmitted by remember { mutableStateOf(false) }
     
     val initialDate = if (transactionToEdit?.date != null) {
         try { LocalDateTime.parse(transactionToEdit.date, DateTimeFormatter.ISO_LOCAL_DATE_TIME).toLocalDate() } catch (e: Exception) { LocalDate.now() }
@@ -67,15 +70,34 @@ fun AddGoalTransactionScreen(
         selectedDate.dayOfMonth
     )
 
+    LaunchedEffect(Unit) {
+        savingsViewModel.resetSuccess()
+        accountsViewModel.loadAccounts()
+    }
+
+    LaunchedEffect(accounts) {
+        if (selectedAccountId == null) {
+            selectedAccountId = accounts.firstOrNull()?.id
+        }
+    }
+
+    LaunchedEffect(error) {
+        error?.let { snackbarHostState.showSnackbar(it) }
+    }
+
     LaunchedEffect(success) {
-        if (success) {
+        if (success && hasSubmitted) {
             accountsViewModel.loadAccounts()
             savingsViewModel.resetSuccess()
             onBack()
         }
     }
 
+    val amountValue = parseMoneyInput(amount)
+    val isFormValid = amountValue != null && amountValue > 0.0 && selectedAccountId != null && title.isNotBlank()
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(if (transactionToEdit != null) "Editar ahorro" else "Agregar transacción") },
@@ -100,16 +122,17 @@ fun AddGoalTransactionScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(80.dp),
-                color = Color(0xFFD1C4E9),
+                color = if (isFormValid && !isLoading) Color(0xFFD1C4E9) else Color.Gray.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                 onClick = {
-                    if (amount.isNotEmpty() && selectedAccountId != null) {
+                    if (isFormValid) {
+                        hasSubmitted = true
                         if (transactionToEdit != null) {
                             savingsViewModel.updateGoalTransaction(
                                 transactionId = transactionToEdit.id,
                                 goalId = goal.id,
-                                accountId = selectedAccountId!!,
-                                amount = amount.toDoubleOrNull() ?: 0.0,
+                                accountId = selectedAccountId ?: 0L,
+                                amount = amountValue ?: 0.0,
                                 description = title,
                                 notes = notes,
                                 dateTime = LocalDateTime.of(selectedDate, LocalTime.now())
@@ -117,8 +140,8 @@ fun AddGoalTransactionScreen(
                         } else {
                             savingsViewModel.addTransactionToGoal(
                                 goalId = goal.id,
-                                accountId = selectedAccountId!!,
-                                amount = amount.toDoubleOrNull() ?: 0.0,
+                                accountId = selectedAccountId ?: 0L,
+                                amount = amountValue ?: 0.0,
                                 description = title,
                                 notes = notes,
                                 dateTime = LocalDateTime.of(selectedDate, LocalTime.now())
@@ -132,8 +155,8 @@ fun AddGoalTransactionScreen(
                         CircularProgressIndicator(color = Color.Black)
                     } else {
                         Text(
-                            "Guardar movimiento",
-                            color = Color.Black,
+                            if (isFormValid) "Guardar movimiento" else "Completa monto y cuenta",
+                            color = if (isFormValid) Color.Black else Color.White.copy(alpha = 0.7f),
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
@@ -164,7 +187,7 @@ fun AddGoalTransactionScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 TextField(
                     value = amount,
-                    onValueChange = { if (it.isEmpty() || it.replace(",", ".").toDoubleOrNull() != null) amount = it },
+                    onValueChange = { if (isPotentialMoneyInput(it)) amount = it },
                     placeholder = { Text("0", fontSize = 40.sp, color = Color.Gray) },
                     modifier = Modifier.widthIn(max = 200.dp),
                     colors = TextFieldDefaults.colors(
@@ -194,7 +217,7 @@ fun AddGoalTransactionScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     val dateText = when (selectedDate) {
                         LocalDate.now() -> "Hoy"
-                        else -> selectedDate.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale("es")))
+                        else -> selectedDate.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("es")))
                     }
                     Text(dateText, fontWeight = FontWeight.Bold, fontSize = 24.sp, color = Color.White)
                 }
