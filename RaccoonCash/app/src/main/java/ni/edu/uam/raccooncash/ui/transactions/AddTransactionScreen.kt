@@ -124,6 +124,13 @@ fun AddTransactionScreen(
         true
     )
 
+    val amountDouble = parseMoneyInput(amount)
+    val isFormValid = selectedAccountId != null &&
+            amountDouble != null &&
+            amountDouble > 0.0 &&
+            title.isNotBlank() &&
+            (if (selectedTab == 2) selectedToAccountId != null else selectedCategoryId != null)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -141,12 +148,79 @@ fun AddTransactionScreen(
                     }
                 }
             )
+        },
+        bottomBar = {
+            Surface(tonalElevation = 4.dp) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .imePadding()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    if (error != null) {
+                        Text(
+                            text = error!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            val type = when (selectedTab) {
+                                0 -> "EXPENSE"
+                                1 -> "INCOME"
+                                else -> "TRANSFER"
+                            }
+                            val finalDateTime = LocalDateTime.of(selectedDate, selectedTime)
+
+                            if (isFormValid) {
+                                if (transactionToEdit != null) {
+                                    viewModel.updateTransaction(
+                                        id = transactionToEdit.id,
+                                        amount = amountDouble ?: 0.0,
+                                        type = type,
+                                        accountId = selectedAccountId!!,
+                                        toAccountId = if (type == "TRANSFER") selectedToAccountId else null,
+                                        categoryId = if (type != "TRANSFER") selectedCategoryId else null,
+                                        description = title,
+                                        notes = notes,
+                                        dateTime = finalDateTime
+                                    )
+                                } else {
+                                    viewModel.createTransaction(
+                                        amount = amountDouble ?: 0.0,
+                                        type = type,
+                                        accountId = selectedAccountId!!,
+                                        toAccountId = if (type == "TRANSFER") selectedToAccountId else null,
+                                        categoryId = if (type != "TRANSFER") selectedCategoryId else null,
+                                        description = title,
+                                        notes = notes,
+                                        dateTime = finalDateTime
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading && isFormValid
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Text(if (transactionToEdit != null) "Actualizar" else "Guardar")
+                        }
+                    }
+                }
+            }
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -317,70 +391,6 @@ fun AddTransactionScreen(
                         )
                         Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            if (error != null) {
-                Text(
-                    text = error!!,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-
-            val amountDouble = parseMoneyInput(amount)
-            val isFormValid = selectedAccountId != null &&
-                             amountDouble != null &&
-                             amountDouble > 0.0 &&
-                             title.isNotBlank() &&
-                             (if (selectedTab == 2) selectedToAccountId != null else selectedCategoryId != null)
-
-            Button(
-                onClick = {
-                    val type = when (selectedTab) {
-                        0 -> "EXPENSE"
-                        1 -> "INCOME"
-                        else -> "TRANSFER"
-                    }
-                    val finalDateTime = LocalDateTime.of(selectedDate, selectedTime)
-
-                    if (isFormValid) {
-                        if (transactionToEdit != null) {
-                            viewModel.updateTransaction(
-                                id = transactionToEdit.id,
-                                amount = amountDouble ?: 0.0,
-                                type = type,
-                                accountId = selectedAccountId!!,
-                                toAccountId = if (type == "TRANSFER") selectedToAccountId else null,
-                                categoryId = if (type != "TRANSFER") selectedCategoryId else null,
-                                description = title,
-                                notes = notes,
-                                dateTime = finalDateTime
-                            )
-                        } else {
-                            viewModel.createTransaction(
-                                amount = amountDouble ?: 0.0,
-                                type = type,
-                                accountId = selectedAccountId!!,
-                                toAccountId = if (type == "TRANSFER") selectedToAccountId else null,
-                                categoryId = if (type != "TRANSFER") selectedCategoryId else null,
-                                description = title,
-                                notes = notes,
-                                dateTime = finalDateTime
-                            )
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading && isFormValid
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
-                } else {
-                    Text(if (transactionToEdit != null) "Actualizar" else "Guardar")
                 }
             }
         }

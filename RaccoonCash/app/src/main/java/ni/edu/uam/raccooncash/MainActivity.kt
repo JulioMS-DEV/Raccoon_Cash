@@ -113,19 +113,20 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     bottomBar = {
                         NavigationBar(
-                            containerColor = Color(0xFF0F111A),
+                            containerColor = Color(0xFF080B14),
                             contentColor = Color.White
                         ) {
                             val items = listOf(
                                 Triple("inicio", "Inicio", Icons.Default.Home),
-                                Triple("transacciones", "Transacciones", Icons.AutoMirrored.Filled.List),
+                                Triple("transacciones", "Movs.", Icons.AutoMirrored.Filled.List),
                                 Triple("deudas", "Deudas", Icons.Default.AccountBalanceWallet),
-                                Triple("presupuestos", "Presupuestos", Icons.Default.AccountBalanceWallet),
-                                Triple("ahorro", "Ahorro", Icons.Default.Star)
+                                Triple("presupuestos", "Planes", Icons.Default.AccountBalanceWallet),
+                                Triple("ahorro", "Metas", Icons.Default.Star)
                             )
                             items.forEach { (screen, label, icon) ->
+                                val selected = currentScreen == screen
                                 NavigationBarItem(
-                                    selected = currentScreen == screen,
+                                    selected = selected,
                                     onClick = {
                                         currentScreen = screen
                                         when (screen) {
@@ -135,14 +136,28 @@ class MainActivity : ComponentActivity() {
                                             "ahorro" -> savingsViewModel.loadSavingGoals()
                                         }
                                     },
-                                    icon = { Icon(icon, contentDescription = label) },
-                                    label = { Text(label) },
+                                    icon = {
+                                        Icon(
+                                            icon,
+                                            contentDescription = label,
+                                            modifier = Modifier.size(if (selected) 24.dp else 22.dp)
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                            text = label,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    },
                                     colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = Color.White,
-                                        unselectedIconColor = Color.Gray,
+                                        selectedIconColor = Color(0xFFA78BFA),
+                                        unselectedIconColor = Color(0xFF9CA3AF),
                                         selectedTextColor = Color.White,
-                                        unselectedTextColor = Color.Gray,
-                                        indicatorColor = Color(0xFF2C313F)
+                                        unselectedTextColor = Color(0xFF9CA3AF),
+                                        indicatorColor = Color(0xFFA78BFA).copy(alpha = 0.20f)
                                     )
                                 )
                             }
