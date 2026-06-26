@@ -37,7 +37,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ni.edu.uam.raccooncash.data.model.AccountResponse
 import ni.edu.uam.raccooncash.data.model.CategoryResponse
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
 import ni.edu.uam.raccooncash.ui.accounts.getEmojiForCategory
@@ -49,91 +48,6 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
-import java.util.Locale
-
-private object TransactionPalette {
-    val Background = Color(0xFF080B14)
-    val BackgroundAlt = Color(0xFF0B1020)
-    val Card = Color(0xFF171C2A)
-    val ElevatedCard = Color(0xFF202638)
-    val Border = Color.White.copy(alpha = 0.08f)
-    val Lavender = Color(0xFFA78BFA)
-    val LavenderStrong = Color(0xFF7C3AED)
-    val Mint = Color(0xFF7EDC8D)
-    val Sky = Color(0xFF74C7EC)
-    val Orange = Color(0xFFFFB84D)
-    val Coral = Color(0xFFFF7A85)
-    val TextPrimary = Color.White
-    val TextSecondary = Color(0xFF9CA3AF)
-}
-
-private data class TransactionAccountVisual(
-    val icon: ImageVector,
-    val color: Color,
-    val backgroundColor: Color
-)
-
-private fun parseTransactionColor(color: String?): Color? {
-    val rawColor = color?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-    val normalizedColor = if (rawColor.startsWith("#")) rawColor else "#$rawColor"
-
-    return try {
-        Color(android.graphics.Color.parseColor(normalizedColor))
-    } catch (e: IllegalArgumentException) {
-        null
-    }
-}
-
-private fun getTransactionAccountVisual(account: AccountResponse): TransactionAccountVisual {
-    val normalizedName = account.name.trim().lowercase(Locale.getDefault())
-    val fallback = when {
-        listOf("efectivo", "cash", "moneda", "monedas", "dinero", "billetera", "cartera")
-            .any { it in normalizedName } -> TransactionAccountVisual(
-            icon = Icons.Default.Payments,
-            color = TransactionPalette.Mint,
-            backgroundColor = TransactionPalette.Mint.copy(alpha = 0.14f)
-        )
-
-        listOf("débito", "debito", "tarjeta", "banco", "credit", "crédito", "credito")
-            .any { it in normalizedName } -> TransactionAccountVisual(
-            icon = Icons.Default.CreditCard,
-            color = TransactionPalette.Sky,
-            backgroundColor = TransactionPalette.Sky.copy(alpha = 0.14f)
-        )
-
-        listOf("ahorro", "meta", "guardado", "alcancía", "alcancia", "viaje")
-            .any { it in normalizedName } -> TransactionAccountVisual(
-            icon = Icons.Default.Star,
-            color = TransactionPalette.Orange,
-            backgroundColor = TransactionPalette.Orange.copy(alpha = 0.14f)
-        )
-
-        else -> TransactionAccountVisual(
-            icon = Icons.Default.AccountBalanceWallet,
-            color = Color(0xFFB6C2D9),
-            backgroundColor = TransactionPalette.ElevatedCard.copy(alpha = 0.84f)
-        )
-    }
-
-    val savedColor = parseTransactionColor(account.color) ?: fallback.color
-    return fallback.copy(
-        color = savedColor,
-        backgroundColor = savedColor.copy(alpha = 0.16f)
-    )
-}
-
-private fun getTransactionTypeAccent(selectedTab: Int): Color {
-    return when (selectedTab) {
-        0 -> TransactionPalette.Coral
-        1 -> TransactionPalette.Mint
-        else -> TransactionPalette.Sky
-    }
-}
-
-private fun formatTransactionAccountBalance(account: AccountResponse): String {
-    val precision = account.decimalPrecision ?: 2
-    return "${account.currency}${String.format(Locale.US, "%.${precision}f", account.currentBalance)}"
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -221,42 +135,6 @@ fun AddTransactionScreen(
             title.isNotBlank() &&
             (if (selectedTab == 2) selectedToAccountId != null else selectedCategoryId != null)
 
-    fun saveTransaction() {
-        val type = when (selectedTab) {
-            0 -> "EXPENSE"
-            1 -> "INCOME"
-            else -> "TRANSFER"
-        }
-        val finalDateTime = LocalDateTime.of(selectedDate, selectedTime)
-
-        if (isFormValid) {
-            if (transactionToEdit != null) {
-                viewModel.updateTransaction(
-                    id = transactionToEdit.id,
-                    amount = amountDouble ?: 0.0,
-                    type = type,
-                    accountId = selectedAccountId!!,
-                    toAccountId = if (type == "TRANSFER") selectedToAccountId else null,
-                    categoryId = if (type != "TRANSFER") selectedCategoryId else null,
-                    description = title,
-                    notes = notes,
-                    dateTime = finalDateTime
-                )
-            } else {
-                viewModel.createTransaction(
-                    amount = amountDouble ?: 0.0,
-                    type = type,
-                    accountId = selectedAccountId!!,
-                    toAccountId = if (type == "TRANSFER") selectedToAccountId else null,
-                    categoryId = if (type != "TRANSFER") selectedCategoryId else null,
-                    description = title,
-                    notes = notes,
-                    dateTime = finalDateTime
-                )
-            }
-        }
-    }
-
     Scaffold(
         containerColor = TransactionPalette.Background,
         topBar = {
@@ -298,6 +176,72 @@ fun AddTransactionScreen(
                 enabled = !isLoading && isFormValid,
                 onClick = ::saveTransaction
             )
+        },
+        bottomBar = {
+            Surface(tonalElevation = 4.dp) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .imePadding()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    if (error != null) {
+                        Text(
+                            text = error!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            val type = when (selectedTab) {
+                                0 -> "EXPENSE"
+                                1 -> "INCOME"
+                                else -> "TRANSFER"
+                            }
+                            val finalDateTime = LocalDateTime.of(selectedDate, selectedTime)
+
+                            if (isFormValid) {
+                                if (transactionToEdit != null) {
+                                    viewModel.updateTransaction(
+                                        id = transactionToEdit.id,
+                                        amount = amountDouble ?: 0.0,
+                                        type = type,
+                                        accountId = selectedAccountId!!,
+                                        toAccountId = if (type == "TRANSFER") selectedToAccountId else null,
+                                        categoryId = if (type != "TRANSFER") selectedCategoryId else null,
+                                        description = title,
+                                        notes = notes,
+                                        dateTime = finalDateTime
+                                    )
+                                } else {
+                                    viewModel.createTransaction(
+                                        amount = amountDouble ?: 0.0,
+                                        type = type,
+                                        accountId = selectedAccountId!!,
+                                        toAccountId = if (type == "TRANSFER") selectedToAccountId else null,
+                                        categoryId = if (type != "TRANSFER") selectedCategoryId else null,
+                                        description = title,
+                                        notes = notes,
+                                        dateTime = finalDateTime
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading && isFormValid
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Text(if (transactionToEdit != null) "Actualizar" else "Guardar")
+                        }
+                    }
+                }
+            }
         }
     ) { padding ->
         val selectedAccount = accounts.find { it.id == selectedAccountId }
@@ -313,14 +257,55 @@ fun AddTransactionScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            TransactionPalette.Background,
-                            TransactionPalette.BackgroundAlt,
-                            TransactionPalette.Background
-                        )
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Tabs
+            TabRow(selectedTabIndex = selectedTab) {
+                tabs.forEachIndexed { index, label ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { 
+                            selectedTab = index
+                            // Al cambiar de pestaña, resetear la categoría seleccionada si no es transferencia
+                            if (index != 2) {
+                                selectedCategoryId = null
+                            }
+                        },
+                        text = { Text(label) }
                     )
+                }
+            }
+
+            // Amount Input
+            val selectedAccount = accounts.find { it.id == selectedAccountId }
+            val currencySymbol = selectedAccount?.currency ?: "C$"
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = currencySymbol,
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                TextField(
+                    value = amount,
+                    onValueChange = { if (isPotentialMoneyInput(it)) amount = it },
+                    placeholder = { Text("0", style = MaterialTheme.typography.headlineLarge) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    textStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, textAlign = TextAlign.End),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        disabledContainerColor = Color.Transparent,
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 )
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
@@ -389,12 +374,35 @@ fun AddTransactionScreen(
             )
 
             if (selectedTab != 2) {
-                CategorySelectorCard(
-                    selectedCategory = selectedCategory,
-                    fallbackCategoryName = transactionToEdit?.categoryName,
-                    selectedTab = selectedTab,
-                    onClick = { showCategorySheet = true }
-                )
+                val selectedCategory = categories.find { it.id == selectedCategoryId }
+                
+                Surface(
+                    onClick = { showCategorySheet = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(getEmojiForCategory(selectedCategory?.name ?: transactionToEdit?.categoryName, selectedCategory?.icon), fontSize = 24.sp)
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = selectedCategory?.name ?: transactionToEdit?.categoryName ?: "Selecciona una categoría",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                    }
+                }
             }
         }
     }
