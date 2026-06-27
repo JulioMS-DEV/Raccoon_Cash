@@ -1,12 +1,15 @@
 package ni.edu.uam.raccooncash.ui.transactions
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -22,11 +26,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -39,6 +46,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -47,15 +55,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ni.edu.uam.raccooncash.data.model.CategoryResponse
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
 import ni.edu.uam.raccooncash.ui.accounts.getEmojiForCategory
+import ni.edu.uam.raccooncash.util.formatCurrencyAmount
+import ni.edu.uam.raccooncash.util.isPotentialMoneyInput
+import ni.edu.uam.raccooncash.util.parseMoneyInput
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -90,6 +105,21 @@ enum class TransactionSortOption(val label: String) {
     AMOUNT_ASC("Menor monto")
 }
 
+private object FilterSheetPalette {
+    val Background = Color(0xFF080B14)
+    val BackgroundAlt = Color(0xFF0B1020)
+    val Card = Color(0xFF171C2A)
+    val ElevatedCard = Color(0xFF202638)
+    val Border = Color.White.copy(alpha = 0.09f)
+    val Lavender = Color(0xFFA78BFA)
+    val LavenderDeep = Color(0xFF31254B)
+    val Mint = Color(0xFF7EDC8D)
+    val Sky = Color(0xFF74C7EC)
+    val Coral = Color(0xFFFF7A85)
+    val TextPrimary = Color.White
+    val TextSecondary = Color(0xFF9CA3AF)
+}
+
 @Composable
 fun TransactionToolsMenu(
     activeFilterCount: Int,
@@ -102,12 +132,15 @@ fun TransactionToolsMenu(
     Box {
         Surface(
             onClick = { expanded = true },
-            color = Color(0xFF1E222D),
-            shape = RoundedCornerShape(20.dp),
-            border = if (activeFilterCount > 0) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB5A9D4)) else null
+            color = Color(0xFF202638),
+            shape = RoundedCornerShape(999.dp),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (activeFilterCount > 0) Color(0xFFA78BFA) else Color(0xFFA78BFA).copy(alpha = 0.28f)
+            )
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -116,13 +149,13 @@ fun TransactionToolsMenu(
                     Box(
                         modifier = Modifier
                             .size(20.dp)
-                            .background(Color(0xFFB5A9D4), CircleShape),
+                            .background(Color(0xFFA78BFA), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(activeFilterCount.toString(), color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(activeFilterCount.toString(), color = Color(0xFF080B14), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Color(0xFFA78BFA), modifier = Modifier.size(18.dp))
             }
         }
 
@@ -167,7 +200,7 @@ fun TransactionToolsMenu(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TransactionFilterSheet(
     filters: TransactionFilterState,
@@ -177,98 +210,92 @@ fun TransactionFilterSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF0F111A)
+        containerColor = FilterSheetPalette.Background,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 10.dp, bottom = 2.dp)
+                    .width(46.dp)
+                    .height(5.dp)
+                    .background(FilterSheetPalette.Lavender.copy(alpha = 0.45f), RoundedCornerShape(999.dp))
+            )
+        }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 660.dp)
+                .heightIn(max = 680.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            FilterSheetPalette.Background,
+                            FilterSheetPalette.BackgroundAlt,
+                            FilterSheetPalette.Background
+                        )
+                    )
+                )
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text("Filtros", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                    Text("Apila varias condiciones para afinar la busqueda.", color = Color.Gray, fontSize = 13.sp)
-                }
-                if (filters.hasActiveFilters) {
-                    Button(
-                        onClick = { onFiltersChange(TransactionFilterState()) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C313F), contentColor = Color.White)
-                    ) {
-                        Text("Limpiar")
-                    }
-                }
-            }
+            FilterSheetHeader(
+                hasActiveFilters = filters.hasActiveFilters,
+                onClearAll = { onFiltersChange(TransactionFilterState()) }
+            )
 
             SelectedFiltersList(
                 filters = filters,
-                categories = categories,
                 onFiltersChange = onFiltersChange
             )
 
-            FilterSection(title = "Tipo de transaccion") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    TransactionTypeChip("Gasto", filters.selectedTypes.contains("EXPENSE")) {
+            FilterSection(title = "Tipo de transacción") {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TransactionTypeChip("Gasto", filters.selectedTypes.contains("EXPENSE"), FilterSheetPalette.Coral, Icons.Default.ArrowDownward) {
                         onFiltersChange(filters.toggleType("EXPENSE"))
                     }
-                    TransactionTypeChip("Ingreso", filters.selectedTypes.contains("INCOME")) {
+                    TransactionTypeChip("Ingreso", filters.selectedTypes.contains("INCOME"), FilterSheetPalette.Mint, Icons.Default.ArrowUpward) {
                         onFiltersChange(filters.toggleType("INCOME"))
                     }
-                    TransactionTypeChip("Transferencia", filters.selectedTypes.contains("TRANSFER")) {
+                    TransactionTypeChip("Transferencia", filters.selectedTypes.contains("TRANSFER"), FilterSheetPalette.Sky, Icons.Default.SwapHoriz) {
                         onFiltersChange(filters.toggleType("TRANSFER"))
                     }
                 }
             }
 
-            FilterSection(title = "Titulo") {
+            FilterSection(title = "Título") {
                 OutlinedTextField(
                     value = filters.titleQuery,
                     onValueChange = { onFiltersChange(filters.copy(titleQuery = it)) },
-                    placeholder = { Text("Buscar por titulo") },
+                    label = { Text("Título") },
+                    placeholder = { Text("Buscar por título") },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = null, tint = FilterSheetPalette.TextSecondary)
+                    },
                     singleLine = true,
                     colors = filterTextFieldColors(),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(16.dp),
+                    textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 52.dp)
                 )
             }
 
             FilterSection(title = "Monto") {
-                Text("Dejalo vacio si no quieres filtrar por monto.", color = Color.Gray, fontSize = 12.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = filters.minAmount,
-                        onValueChange = { onFiltersChange(filters.copy(minAmount = sanitizeAmountInput(it))) },
-                        placeholder = { Text("Min") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        colors = filterTextFieldColors(),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = filters.maxAmount,
-                        onValueChange = { onFiltersChange(filters.copy(maxAmount = sanitizeAmountInput(it))) },
-                        placeholder = { Text("Max") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        colors = filterTextFieldColors(),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                Text("Déjalo vacío si no quieres filtrar por monto.", color = FilterSheetPalette.TextSecondary, fontSize = 12.sp)
+                AmountFields(filters = filters, onFiltersChange = onFiltersChange)
             }
 
-            FilterSection(title = "Categorias y subcategorias") {
+            FilterSection(title = "Categorías y subcategorías") {
                 Text(
-                    "Elige una categoria completa o solo subcategorias especificas. Puedes escoger varias.",
-                    color = Color.Gray,
+                    "Elige una categoría completa o subcategorías específicas.",
+                    color = FilterSheetPalette.TextSecondary,
                     fontSize = 12.sp
                 )
-                Spacer(modifier = Modifier.height(12.dp))
                 CategoryFilterList(
                     categories = categories,
                     filters = filters,
@@ -276,7 +303,9 @@ fun TransactionFilterSheet(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            ApplyFiltersButton(onClick = onDismiss)
+
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
@@ -344,37 +373,77 @@ fun parseTransactionDate(transaction: TransactionResponse): LocalDateTime? {
 }
 
 @Composable
+private fun FilterSheetHeader(
+    hasActiveFilters: Boolean,
+    onClearAll: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text("Filtros", color = FilterSheetPalette.TextPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp)
+            Text(
+                "Aplica varias condiciones para afinar la búsqueda.",
+                color = FilterSheetPalette.TextSecondary,
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+            )
+        }
+
+        TextButton(
+            onClick = onClearAll,
+            enabled = hasActiveFilters,
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = FilterSheetPalette.Lavender,
+                disabledContentColor = FilterSheetPalette.TextSecondary.copy(alpha = 0.45f)
+            ),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Text("Limpiar todo", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun SelectedFiltersList(
     filters: TransactionFilterState,
-    categories: List<CategoryResponse>,
     onFiltersChange: (TransactionFilterState) -> Unit
 ) {
-    if (!filters.hasActiveFilters) {
-        Text("No hay filtros aplicados.", color = Color.Gray, fontSize = 13.sp)
-        return
-    }
+    val hasGeneralFilters = filters.selectedTypes.isNotEmpty() ||
+        filters.titleQuery.isNotBlank() ||
+        filters.minAmount.isNotBlank() ||
+        filters.maxAmount.isNotBlank()
 
-    FilterSection(title = "Filtros aplicados") {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    if (!hasGeneralFilters) return
+
+    FilterSection(title = "Filtros activos") {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             filters.selectedTypes.forEach { type ->
-                AppliedFilterRow("Tipo: ${type.toTransactionTypeLabel()}") {
+                AppliedFilterChip("Tipo: ${type.toTransactionTypeLabel()}") {
                     onFiltersChange(filters.copy(selectedTypes = filters.selectedTypes - type))
                 }
             }
-            filters.categoryFilters.forEach { filter ->
-                AppliedFilterRow(filter.toCategoryFilterLabel(categories)) {
-                    onFiltersChange(filters.copy(categoryFilters = filters.categoryFilters - filter))
-                }
-            }
             if (filters.titleQuery.isNotBlank()) {
-                AppliedFilterRow("Titulo: ${filters.titleQuery}") {
+                AppliedFilterChip("Título: ${filters.titleQuery}") {
                     onFiltersChange(filters.copy(titleQuery = ""))
                 }
             }
             if (filters.minAmount.isNotBlank() || filters.maxAmount.isNotBlank()) {
-                val min = filters.minAmount.ifBlank { "sin minimo" }
-                val max = filters.maxAmount.ifBlank { "sin maximo" }
-                AppliedFilterRow("Monto: C$$min - C$$max") {
+                val min = formatAmountFilterLabel(filters.minAmount, "sin mínimo")
+                val max = formatAmountFilterLabel(filters.maxAmount, "sin máximo")
+                AppliedFilterChip("Monto: $min - $max") {
                     onFiltersChange(filters.copy(minAmount = "", maxAmount = ""))
                 }
             }
@@ -387,30 +456,135 @@ private fun FilterSection(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF1E222D), RoundedCornerShape(18.dp))
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = FilterSheetPalette.Card,
+        border = BorderStroke(1.dp, FilterSheetPalette.Border),
+        shadowElevation = 6.dp
     ) {
-        Text(title, color = Color.White, fontWeight = FontWeight.Bold)
-        content()
+        Column(
+            modifier = Modifier.padding(13.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Text(title, color = FilterSheetPalette.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            content()
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AmountFields(
+    filters: TransactionFilterState,
+    onFiltersChange: (TransactionFilterState) -> Unit
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val stackFields = maxWidth < 280.dp
+        val fieldSpacing = if (stackFields) 8.dp else 10.dp
+
+        if (stackFields) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(fieldSpacing)
+            ) {
+                AmountTextField(
+                    value = filters.minAmount,
+                    onValueChange = { if (isPotentialMoneyInput(it)) onFiltersChange(filters.copy(minAmount = it)) },
+                    label = "Mínimo"
+                )
+                AmountTextField(
+                    value = filters.maxAmount,
+                    onValueChange = { if (isPotentialMoneyInput(it)) onFiltersChange(filters.copy(maxAmount = it)) },
+                    label = "Máximo"
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(fieldSpacing)
+            ) {
+                AmountTextField(
+                    value = filters.minAmount,
+                    onValueChange = { if (isPotentialMoneyInput(it)) onFiltersChange(filters.copy(minAmount = it)) },
+                    label = "Mínimo",
+                    modifier = Modifier.weight(1f)
+                )
+                AmountTextField(
+                    value = filters.maxAmount,
+                    onValueChange = { if (isPotentialMoneyInput(it)) onFiltersChange(filters.copy(maxAmount = it)) },
+                    label = "Máximo",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun RowScope.TransactionTypeChip(
+private fun AmountTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier.fillMaxWidth()
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        placeholder = { Text("0.00") },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        colors = filterTextFieldColors(),
+        shape = RoundedCornerShape(16.dp),
+        textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+        modifier = modifier.heightIn(min = 52.dp)
+    )
+}
+
+@Composable
+private fun TransactionTypeChip(
     text: String,
     selected: Boolean,
+    accent: Color,
+    icon: ImageVector,
     onClick: () -> Unit
 ) {
-    SelectableChip(
-        text = text,
-        selected = selected,
-        modifier = Modifier.weight(1f),
-        onClick = onClick
-    )
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(18.dp),
+        color = if (selected) FilterSheetPalette.Lavender.copy(alpha = 0.16f) else FilterSheetPalette.ElevatedCard,
+        border = BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) FilterSheetPalette.Lavender else FilterSheetPalette.Border
+        ),
+        shadowElevation = if (selected) 8.dp else 0.dp,
+        modifier = Modifier.widthIn(min = 102.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(accent, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = FilterSheetPalette.Background, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = text,
+                color = FilterSheetPalette.TextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
 }
 
 @Composable
@@ -424,7 +598,7 @@ private fun CategoryFilterList(
         .sortedWith(compareBy<CategoryResponse> { it.type }.thenBy { it.name.lowercase(Locale.getDefault()) })
 
     if (rootCategories.isEmpty()) {
-        Text("No hay categorias disponibles.", color = Color.Gray, fontSize = 13.sp)
+        Text("No hay categorías disponibles.", color = FilterSheetPalette.TextSecondary, fontSize = 13.sp)
         return
     }
 
@@ -434,9 +608,9 @@ private fun CategoryFilterList(
         .filter { it.parentCategoryId == focusedCategory.id }
         .sortedBy { it.name.lowercase(Locale.getDefault()) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             items(rootCategories, key = { it.id }) { category ->
@@ -460,6 +634,12 @@ private fun CategoryFilterList(
             categories = categories,
             onFiltersChange = onFiltersChange
         )
+
+        AppliedCategoryFiltersPanel(
+            filters = filters,
+            categories = categories,
+            onFiltersChange = onFiltersChange
+        )
     }
 }
 
@@ -471,46 +651,123 @@ private fun CategoryScopeChooser(
     categories: List<CategoryResponse>,
     onFiltersChange: (TransactionFilterState) -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF0F111A), RoundedCornerShape(16.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = FilterSheetPalette.BackgroundAlt,
+        border = BorderStroke(1.dp, FilterSheetPalette.Border)
     ) {
-        Text("Aplicar en ${category.name}", color = Color.White, fontWeight = FontWeight.Bold)
-        Text(category.type.toTransactionTypeLabel(), color = Color.Gray, fontSize = 12.sp)
-
-        val wholeCategorySelection = CategoryFilterSelection(category.id, includeSubcategories = true)
-        SelectableChip(
-            text = if (subcategories.isEmpty()) "Solo esta categoria" else "Toda la categoria",
-            selected = wholeCategorySelection in filters.categoryFilters,
-            onClick = {
-                onFiltersChange(filters.toggleCategorySelection(wholeCategorySelection, categories))
-            }
-        )
-
-        if (subcategories.isNotEmpty()) {
-            Text("O solo una subcategoria", color = Color.Gray, fontSize = 12.sp)
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(subcategories, key = { it.id }) { subcategory ->
-                    val subcategorySelection = CategoryFilterSelection(subcategory.id, includeSubcategories = false)
-                    CategoryIconFilterItem(
-                        category = subcategory,
-                        isFocused = false,
-                        isActive = subcategorySelection in filters.categoryFilters,
-                        selected = subcategorySelection in filters.categoryFilters,
-                        onClick = {
-                            onFiltersChange(filters.toggleCategorySelection(subcategorySelection, categories))
-                        }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(category.name, color = FilterSheetPalette.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(category.type.toTransactionTypeLabel(), color = FilterSheetPalette.TextSecondary, fontSize = 12.sp)
+                }
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .background(category.type.toTransactionTypeColor(), CircleShape)
+                )
+            }
+
+            val wholeCategorySelection = CategoryFilterSelection(category.id, includeSubcategories = true)
+            SelectableChip(
+                text = if (subcategories.isEmpty()) "Seleccionar categoría" else "Seleccionar categoría completa",
+                selected = wholeCategorySelection in filters.categoryFilters,
+                accent = FilterSheetPalette.Lavender,
+                onClick = {
+                    onFiltersChange(filters.toggleCategorySelection(wholeCategorySelection, categories))
+                }
+            )
+
+            if (subcategories.isNotEmpty()) {
+                Text("Subcategorías disponibles", color = FilterSheetPalette.TextSecondary, fontSize = 12.sp)
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(subcategories, key = { it.id }) { subcategory ->
+                        val subcategorySelection = CategoryFilterSelection(subcategory.id, includeSubcategories = false)
+                        CategoryIconFilterItem(
+                            category = subcategory,
+                            isFocused = false,
+                            isActive = subcategorySelection in filters.categoryFilters,
+                            selected = subcategorySelection in filters.categoryFilters,
+                            onClick = {
+                                onFiltersChange(filters.toggleCategorySelection(subcategorySelection, categories))
+                            }
+                        )
+                    }
+                }
+            } else {
+                Text("Esta categoría no tiene subcategorías.", color = FilterSheetPalette.TextSecondary, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AppliedCategoryFiltersPanel(
+    filters: TransactionFilterState,
+    categories: List<CategoryResponse>,
+    onFiltersChange: (TransactionFilterState) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = FilterSheetPalette.ElevatedCard,
+        border = BorderStroke(
+            1.dp,
+            if (filters.categoryFilters.isEmpty()) FilterSheetPalette.Border else FilterSheetPalette.Lavender.copy(alpha = 0.62f)
+        ),
+        shadowElevation = if (filters.categoryFilters.isEmpty()) 0.dp else 10.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Filtros de categoría aplicados", color = FilterSheetPalette.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+
+            if (filters.categoryFilters.isEmpty()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = FilterSheetPalette.BackgroundAlt,
+                    border = BorderStroke(1.dp, FilterSheetPalette.Border)
+                ) {
+                    Text(
+                        "Aún no seleccionaste categorías.",
+                        color = FilterSheetPalette.TextSecondary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
                     )
                 }
+            } else {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    filters.categoryFilters.forEach { filter ->
+                        AppliedFilterChip(filter.toCategoryFilterLabel(categories)) {
+                            onFiltersChange(filters.copy(categoryFilters = filters.categoryFilters - filter))
+                        }
+                    }
+                }
             }
-        } else {
-            Text("Esta categoria no tiene subcategorias.", color = Color.Gray, fontSize = 12.sp)
         }
     }
 }
@@ -523,42 +780,44 @@ private fun CategoryIconFilterItem(
     onClick: () -> Unit,
     selected: Boolean = isActive
 ) {
+    val borderColor = when {
+        selected -> FilterSheetPalette.Lavender
+        isFocused -> FilterSheetPalette.Lavender.copy(alpha = 0.48f)
+        else -> FilterSheetPalette.Border
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(82.dp)
+        modifier = Modifier.width(76.dp)
     ) {
         Surface(
             onClick = onClick,
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(18.dp),
             color = when {
-                selected -> Color(0xFFB5A9D4).copy(alpha = 0.25f)
-                isFocused -> Color(0xFF2C313F)
-                else -> Color(0xFF0F111A)
+                selected -> FilterSheetPalette.Lavender.copy(alpha = 0.18f)
+                isFocused -> FilterSheetPalette.ElevatedCard
+                else -> FilterSheetPalette.BackgroundAlt
             },
-            border = androidx.compose.foundation.BorderStroke(
-                width = if (selected || isFocused) 2.dp else 1.dp,
-                color = when {
-                    selected -> Color(0xFFB5A9D4)
-                    isFocused -> Color.White.copy(alpha = 0.7f)
-                    else -> Color.Gray.copy(alpha = 0.25f)
-                }
-            )
+            border = BorderStroke(width = if (selected || isFocused) 2.dp else 1.dp, color = borderColor),
+            shadowElevation = if (selected) 8.dp else 0.dp
         ) {
             Box(
-                modifier = Modifier.size(64.dp),
+                modifier = Modifier.size(58.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(getEmojiForCategory(category.name, category.icon), fontSize = 30.sp)
+                Text(getEmojiForCategory(category.name, category.icon), fontSize = 26.sp)
             }
         }
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(5.dp))
         Text(
             text = category.name,
-            color = if (isActive) Color.White else Color.Gray,
-            fontSize = 11.sp,
+            color = if (isActive) FilterSheetPalette.TextPrimary else FilterSheetPalette.TextSecondary,
+            fontSize = 10.sp,
+            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
             textAlign = TextAlign.Center,
             maxLines = 2,
-            lineHeight = 12.sp
+            lineHeight = 11.sp,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -568,59 +827,109 @@ private fun SelectableChip(
     text: String,
     selected: Boolean,
     modifier: Modifier = Modifier,
+    accent: Color = FilterSheetPalette.Lavender,
     onClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
-        color = if (selected) Color(0xFFB5A9D4).copy(alpha = 0.25f) else Color(0xFF2C313F),
-        border = androidx.compose.foundation.BorderStroke(
+        shape = RoundedCornerShape(999.dp),
+        color = if (selected) FilterSheetPalette.Lavender.copy(alpha = 0.2f) else FilterSheetPalette.ElevatedCard,
+        border = BorderStroke(
             width = if (selected) 2.dp else 1.dp,
-            color = if (selected) Color(0xFFB5A9D4) else Color.Gray.copy(alpha = 0.25f)
+            color = if (selected) FilterSheetPalette.Lavender else FilterSheetPalette.Border
         ),
+        shadowElevation = if (selected) 5.dp else 0.dp,
         modifier = modifier
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (selected) {
-                Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFFB5A9D4), modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
+                Icon(Icons.Default.Check, contentDescription = null, tint = FilterSheetPalette.Lavender, modifier = Modifier.size(14.dp))
+            } else {
+                Box(modifier = Modifier.size(7.dp).background(accent.copy(alpha = 0.82f), CircleShape))
             }
-            Text(text, color = Color.White, fontSize = 13.sp, textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(text, color = FilterSheetPalette.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
         }
     }
 }
 
 @Composable
-private fun AppliedFilterRow(
+private fun AppliedFilterChip(
     text: String,
     onRemove: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF0F111A), RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = FilterSheetPalette.BackgroundAlt,
+        border = BorderStroke(1.dp, FilterSheetPalette.Lavender.copy(alpha = 0.46f))
     ) {
-        Text(text, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
-            Icon(Icons.Default.Close, contentDescription = "Quitar filtro", tint = Color.Gray, modifier = Modifier.size(16.dp))
+        Row(
+            modifier = Modifier.padding(start = 10.dp, end = 3.dp, top = 5.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = text,
+                color = FilterSheetPalette.TextPrimary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 190.dp)
+            )
+            IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "Quitar filtro", tint = FilterSheetPalette.Lavender, modifier = Modifier.size(14.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ApplyFiltersButton(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(999.dp),
+        color = Color.Transparent,
+        shadowElevation = 12.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(FilterSheetPalette.LavenderDeep, FilterSheetPalette.Lavender)
+                    ),
+                    RoundedCornerShape(999.dp)
+                )
+                .padding(vertical = 13.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Check, contentDescription = null, tint = FilterSheetPalette.TextPrimary, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Aplicar filtros", color = FilterSheetPalette.TextPrimary, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
         }
     }
 }
 
 @Composable
 private fun filterTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.White,
-    unfocusedTextColor = Color.White,
-    focusedBorderColor = Color(0xFFB5A9D4),
-    unfocusedBorderColor = Color.Gray,
-    focusedLabelColor = Color(0xFFB5A9D4),
-    cursorColor = Color(0xFFB5A9D4)
+    focusedTextColor = FilterSheetPalette.TextPrimary,
+    unfocusedTextColor = FilterSheetPalette.TextPrimary,
+    focusedContainerColor = FilterSheetPalette.ElevatedCard,
+    unfocusedContainerColor = FilterSheetPalette.ElevatedCard,
+    disabledContainerColor = FilterSheetPalette.ElevatedCard,
+    focusedBorderColor = FilterSheetPalette.Lavender,
+    unfocusedBorderColor = FilterSheetPalette.Border,
+    focusedLabelColor = FilterSheetPalette.Lavender,
+    unfocusedLabelColor = FilterSheetPalette.TextSecondary,
+    focusedPlaceholderColor = FilterSheetPalette.TextSecondary,
+    unfocusedPlaceholderColor = FilterSheetPalette.TextSecondary,
+    cursorColor = FilterSheetPalette.Lavender
 )
 
 private fun TransactionFilterState.toggleType(type: String): TransactionFilterState {
@@ -668,9 +977,9 @@ private fun CategoryFilterSelection.toCategoryFilterLabel(categories: List<Categ
     val parent = category?.parentCategoryId?.takeIf { it != 0L }?.let { parentId -> categories.find { it.id == parentId } }
 
     return when {
-        includeSubcategories -> "Categoria: ${category?.name ?: "desconocida"} completa"
-        parent != null -> "Subcategoria: ${parent.name} > ${category?.name ?: "desconocida"}"
-        else -> "Categoria: ${category?.name ?: "desconocida"}"
+        includeSubcategories -> "${category?.name ?: "Categoría desconocida"} completo"
+        parent != null -> "${parent.name} > ${category?.name ?: "Subcategoría desconocida"}"
+        else -> category?.name ?: "Categoría desconocida"
     }
 }
 
@@ -683,10 +992,20 @@ private fun String.toTransactionTypeLabel(): String {
     }
 }
 
-private fun sanitizeAmountInput(value: String): String {
-    return value.filter { it.isDigit() || it == '.' || it == ',' }.take(12)
+private fun String.toTransactionTypeColor(): Color {
+    return when (this) {
+        "EXPENSE" -> FilterSheetPalette.Coral
+        "INCOME" -> FilterSheetPalette.Mint
+        "TRANSFER" -> FilterSheetPalette.Sky
+        else -> FilterSheetPalette.Lavender
+    }
+}
+
+private fun formatAmountFilterLabel(value: String, emptyLabel: String): String {
+    if (value.isBlank()) return emptyLabel
+    return parseMoneyInput(value)?.let { formatCurrencyAmount(it) } ?: value
 }
 
 private fun String.toAmountOrNull(): Double? {
-    return replace(',', '.').toDoubleOrNull()
+    return parseMoneyInput(this)
 }
