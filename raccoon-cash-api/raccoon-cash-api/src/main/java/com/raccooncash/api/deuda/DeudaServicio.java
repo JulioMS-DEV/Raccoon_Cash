@@ -71,7 +71,7 @@ public class DeudaServicio {
     @Transactional
     public DeudaRespuesta createDebt(DeudaSolicitud request) {
         validateDebtRequest(request);
-        Cuenta account = findActiveAccount(request.getAccountId());
+        Cuenta account = request.getAccountId() != null ? findActiveAccount(request.getAccountId()) : null;
 
         Deuda debt = new Deuda();
         debt.setPersonName(request.getPersonName().trim());
@@ -94,7 +94,7 @@ public class DeudaServicio {
     public DeudaRespuesta updateDebt(Long id, DeudaSolicitud request) {
         validateDebtRequest(request);
         Deuda debt = findActiveDebt(id);
-        Cuenta account = findActiveAccount(request.getAccountId());
+        Cuenta account = request.getAccountId() != null ? findActiveAccount(request.getAccountId()) : null;
 
         BigDecimal paidAmount = money(safeAmount(debt.getPaidAmount()));
         if (request.getTotalAmount().compareTo(paidAmount) < 0) {
@@ -311,9 +311,6 @@ public class DeudaServicio {
         if (request.getType() == null) {
             throw new SolicitudIncorrectaException("El tipo de deuda es obligatorio");
         }
-        if (request.getAccountId() == null) {
-            throw new SolicitudIncorrectaException("La cuenta es obligatoria");
-        }
         if (Boolean.TRUE.equals(request.getReminderEnabled()) && request.getReminderAt() == null) {
             throw new SolicitudIncorrectaException("La fecha del recordatorio es obligatoria si el recordatorio esta habilitado");
         }
@@ -349,7 +346,7 @@ public class DeudaServicio {
     }
 
     private boolean matchesAccount(Deuda debt, Long accountId) {
-        return accountId == null || debt.getAccount().getId().equals(accountId);
+        return accountId == null || (debt.getAccount() != null && debt.getAccount().getId().equals(accountId));
     }
 
     private boolean matchesDueRange(Deuda debt, LocalDate dueFrom, LocalDate dueTo) {

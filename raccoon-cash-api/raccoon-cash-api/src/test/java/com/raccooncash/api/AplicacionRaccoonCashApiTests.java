@@ -189,7 +189,7 @@ class AplicacionRaccoonCashApiTests {
     }
 
     @Test
-    void savingBudgetCanTrackIncomeCategoryLimits() throws Exception {
+    void budgetOnlyTracksExplicitlyAssociatedTransactions() throws Exception {
         Long accountId = createAccount();
         Long categoryId = createCategory("Ahorro", "INCOME");
 
@@ -228,7 +228,7 @@ class AplicacionRaccoonCashApiTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "description": "Aporte de ahorro",
+                                  "description": "Aporte normal de ahorro",
                                   "amount": 300,
                                   "type": "INCOME",
                                   "date": "2026-06-15T10:00:00",
@@ -237,6 +237,26 @@ class AplicacionRaccoonCashApiTests {
                                 }
                                 """.formatted(accountId, categoryId)))
                 .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/presupuestos/{id}", budgetId.longValue()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.montoActual").value(0));
+
+        mockMvc.perform(post("/api/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "description": "Aporte asociado al presupuesto",
+                                  "amount": 300,
+                                  "type": "INCOME",
+                                  "date": "2026-06-16T10:00:00",
+                                  "accountId": %d,
+                                  "categoryId": %d,
+                                  "budgetId": %d
+                                }
+                                """.formatted(accountId, categoryId, budgetId.longValue())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.budgetId").value(budgetId.longValue()));
 
         mockMvc.perform(get("/api/presupuestos/{id}", budgetId.longValue()))
                 .andExpect(status().isOk())
@@ -326,6 +346,31 @@ class AplicacionRaccoonCashApiTests {
         mockMvc.perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5000));
+    }
+
+    @Test
+    void createDebtWithoutAccountSucceeds() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/debts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "personName": "Ana",
+                                  "description": "Deuda sin cuenta inicial",
+                                  "totalAmount": 250,
+                                  "type": "OWED_TO_ME",
+                                  "dueDate": "2026-07-10"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.personName").value("Ana"))
+                .andExpect(jsonPath("$.remainingAmount").value(250))
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andReturn();
+
+        Object responseAccountId = JsonPath.read(result.getResponse().getContentAsString(), "$.accountId");
+        Object responseAccountName = JsonPath.read(result.getResponse().getContentAsString(), "$.accountName");
+        assertThat(responseAccountId).isNull();
+        assertThat(responseAccountName).isNull();
     }
 
     @Test

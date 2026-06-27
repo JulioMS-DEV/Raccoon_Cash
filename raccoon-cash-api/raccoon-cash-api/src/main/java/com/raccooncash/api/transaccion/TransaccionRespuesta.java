@@ -16,6 +16,7 @@ public class TransaccionRespuesta {
     private Long categoryId;
     private String categoryName;
     private Long savingGoalId;
+    private Long budgetId;
     private String notes;
     private Boolean active;
     private Boolean generatedByDebtPayment;
@@ -48,6 +49,9 @@ public class TransaccionRespuesta {
         }
         if (transaction.getSavingGoal() != null) {
             this.savingGoalId = transaction.getSavingGoal().getId();
+        }
+        if (transaction.getBudget() != null) {
+            this.budgetId = transaction.getBudget().getId();
         }
     }
     public Long getId() {
@@ -133,6 +137,12 @@ public class TransaccionRespuesta {
     }
     public void setSavingGoalId(Long savingGoalId) {
         this.savingGoalId = savingGoalId;
+    }
+    public Long getBudgetId() {
+        return budgetId;
+    }
+    public void setBudgetId(Long budgetId) {
+        this.budgetId = budgetId;
     }
     public String getNotes() {
         return notes;

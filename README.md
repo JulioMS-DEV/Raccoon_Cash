@@ -1,4 +1,4 @@
-# 🦝 Raccoon Cash 💰
+# 🦝 RACCASH 💰
 
 <div align="center">
 
@@ -19,7 +19,7 @@ Desarrollado como proyecto académico de **Programación Orientada a Objetos (PO
 
 # 📖 Descripción
 
-**Raccoon Cash** es una aplicación móvil desarrollada en Android cuyo objetivo es ayudar a los usuarios a administrar sus finanzas personales de forma sencilla, organizada y eficiente.
+**RACCASH** es una aplicación móvil desarrollada en Android cuyo objetivo es ayudar a los usuarios a administrar sus finanzas personales de forma sencilla, organizada y eficiente.
 
 La aplicación permite registrar ingresos, controlar gastos, administrar múltiples cuentas financieras y visualizar resúmenes mensuales para facilitar la toma de decisiones económicas.
 
@@ -158,7 +158,7 @@ Flexibilidad en la implementación de componentes.
 
 # 👨‍💻 Equipo de desarrollo
 
-## Raccoon Cash Team
+## RACCASH Team
 
 Proyecto académico desarrollado para la Universidad Americana (UAM).
 
@@ -182,10 +182,10 @@ Este proyecto fue desarrollado únicamente con fines educativos y académicos.
 
 <div align="center">
 
-### 🦝 Raccoon Cash
+### 🦝 RACCASH
 
 **Organiza tu dinero, controla tus gastos y mejora tus finanzas.**
 
-© 2026 Raccoon Cash Team
+© 2026 RACCASH Team
 
 </div>
