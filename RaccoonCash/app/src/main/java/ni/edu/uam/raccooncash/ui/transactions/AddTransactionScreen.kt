@@ -306,6 +306,14 @@ fun AddTransactionScreen(
                 enabled = !isLoading && isFormValid,
                 onClick = ::saveTransaction
             )
+        },
+        bottomBar = {
+            SaveTransactionBottomBar(
+                error = error,
+                isLoading = isLoading,
+                enabled = !isLoading && isFormValid,
+                onClick = ::saveTransaction
+            )
         }
     ) { padding ->
         val selectedAccount = accounts.find { it.id == selectedAccountId }
@@ -460,414 +468,88 @@ fun AddTransactionScreen(
                     fontSize = 13.sp,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Spacer(modifier = Modifier.height(2.dp))
 
-                CategorySearchField(
-                    value = categorySearchQuery,
-                    onValueChange = { categorySearchQuery = it }
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 96.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 180.dp, max = 440.dp)
-                ) {
-                    if (filteredCategories.isEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            EmptyCategorySearchState(hasQuery = categorySearchQuery.isNotBlank())
-                        }
-                    }
-
-                    items(filteredCategories, key = { it.id }) { category ->
-                        val isSelected = selectedCategoryId == category.id || selectedCategoryInSheet?.parentCategoryId == category.id
-                        CategoryPickerGridCard(
-                            category = category,
-                            movementCount = movementCounts[category.id] ?: 0,
-                            isSelected = isSelected,
-                            onClick = {
-                                val subs = categories.filter { it.parentCategoryId == category.id }
-                                if (subs.isNotEmpty()) {
-                                    parentCategoryForSub = category
-                                    showSubcategorySheet = true
-                                    showCategorySheet = false
-                                } else {
-                                    selectedCategoryId = category.id
-                                    showCategorySheet = false
-                                }
-                            },
-                            onLongClick = {
-                                categoryToEdit = category
-                                showCategorySheet = false
-                            }
-                        )
-                    }
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        AddCategoryPickerCard(
-                            onClick = {
-                                initialParentIdForNewCategory = null
-                                showAddCategoryDialog = true
-                                showCategorySheet = false
-                            }
-                        )
+            TransactionTypeSegmentedControl(
+                tabs = tabs,
+                selectedTab = selectedTab,
+                onTabSelected = { index ->
+                    selectedTab = index
+                    // Al cambiar de pestaña, resetear la categoría seleccionada si no es transferencia
+                    if (index != 2) {
+                        selectedCategoryId = null
                     }
                 }
-            }
-        }
-    }
-
-    if (showSubcategorySheet && parentCategoryForSub != null) {
-        SubcategoryPickerSheet(
-            parentCategory = parentCategoryForSub!!,
-            subcategories = categories.filter { it.parentCategoryId == parentCategoryForSub!!.id },
-            allCategories = categories,
-            categoryTransactions = categoryTransactions,
-            selectedCategoryId = selectedCategoryId,
-            onDismiss = { showSubcategorySheet = false },
-            onSubcategorySelected = { subcategoryId ->
-                selectedCategoryId = subcategoryId
-                showSubcategorySheet = false
-            },
-            onAddSubcategory = {
-                initialParentIdForNewCategory = parentCategoryForSub!!.id
-                showAddCategoryDialog = true
-                showSubcategorySheet = false
-            },
-            onEditParent = {
-                categoryToEdit = parentCategoryForSub
-                showSubcategorySheet = false
-            }
-        )
-    }
-
-    if (showAddCategoryDialog) {
-        CategoryEditorDialog(
-            categories = categories,
-            initialParentId = initialParentIdForNewCategory,
-            categoryTransactions = categoryTransactions,
-            onDismiss = { 
-                showAddCategoryDialog = false
-                if (initialParentIdForNewCategory != null) {
-                    showSubcategorySheet = true
-                } else {
-                    showCategorySheet = true
-                }
-            },
-            onConfirm = { name, type, icon, color, parentId ->
-                viewModel.createCategory(name, type, icon, parentId)
-                showAddCategoryDialog = false
-                if (parentId != null) {
-                    // Si se creó una subcategoría, refrescamos el padre para que aparezca en el selector
-                    parentCategoryForSub = categories.find { it.id == parentId }
-                    showSubcategorySheet = true
-                } else {
-                    showCategorySheet = true
-                }
-            }
-        )
-    }
-
-    if (categoryToEdit != null) {
-        CategoryEditorDialog(
-            categories = categories,
-            category = categoryToEdit,
-            categoryTransactions = categoryTransactions,
-            onDismiss = { 
-                categoryToEdit = null
-                showCategorySheet = true
-            },
-            onConfirm = { name, type, icon, color, parentId ->
-                viewModel.updateCategory(categoryToEdit!!.id, name, type, icon, color, parentId)
-                categoryToEdit = null
-                showCategorySheet = true
-            },
-            onDelete = {
-                viewModel.deleteCategory(categoryToEdit!!.id)
-                categoryToEdit = null
-                showCategorySheet = true
-            }
-        )
-    }
-}
-
-@Composable
-private fun TransactionTypeSegmentedControl(
-    tabs: List<String>,
-    selectedTab: Int,
-    onTabSelected: (Int) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(58.dp)
-            .background(TransactionPalette.ElevatedCard, RoundedCornerShape(24.dp))
-            .border(1.dp, TransactionPalette.Border, RoundedCornerShape(24.dp))
-            .padding(5.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        tabs.forEachIndexed { index, label ->
-            val selected = selectedTab == index
-            val accent = getTransactionTypeAccent(index)
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(19.dp))
-                    .background(
-                        if (selected) accent.copy(alpha = 0.16f) else Color.Transparent,
-                        RoundedCornerShape(19.dp)
-                    )
-                    .clickable { onTabSelected(index) }
-                    .padding(horizontal = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = label,
-                    color = if (selected) TransactionPalette.TextPrimary else TransactionPalette.TextSecondary,
-                    fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    maxLines = 1
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Box(
-                    modifier = Modifier
-                        .width(if (selected) 28.dp else 12.dp)
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(if (selected) accent else Color.Transparent)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AmountInputCard(
-    amount: String,
-    currencySymbol: String,
-    accentColor: Color,
-    onAmountChange: (String) -> Unit
-) {
-    val amountFontSize = when {
-        amount.length > 10 -> 30.sp
-        amount.length > 7 -> 35.sp
-        else -> 42.sp
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(30.dp),
-        color = TransactionPalette.Card,
-        tonalElevation = 4.dp,
-        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.28f))
-    ) {
-        Row(
-            modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            TransactionPalette.ElevatedCard.copy(alpha = 0.96f),
-                            TransactionPalette.Card,
-                            accentColor.copy(alpha = 0.13f)
-                        )
-                    )
-                )
-                .padding(horizontal = 18.dp, vertical = 18.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = currencySymbol,
-                color = accentColor,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 1
             )
-            Spacer(modifier = Modifier.width(10.dp))
-            TextField(
-                value = amount,
-                onValueChange = onAmountChange,
-                placeholder = {
-                    Text(
-                        "0.00",
-                        color = TransactionPalette.TextSecondary,
-                        fontSize = amountFontSize,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                maxLines = 1,
-                textStyle = LocalTextStyle.current.copy(
-                    color = TransactionPalette.TextPrimary,
-                    fontSize = amountFontSize,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.End
-                ),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = accentColor
-                ),
-                modifier = Modifier.weight(1f)
+
+            AmountInputCard(
+                amount = amount,
+                currencySymbol = currencySymbol,
+                accentColor = accentColor,
+                onAmountChange = { if (isPotentialMoneyInput(it)) amount = it }
+            )
+
+            DateTimeSelectorRow(
+                dateText = dateText,
+                timeText = selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")),
+                onDateClick = { datePickerDialog.show() },
+                onTimeClick = { timePickerDialog.show() }
+            )
+
+            AccountSelectorSection(
+                title = "Seleccionar cuenta",
+                accounts = accounts,
+                selectedAccountId = selectedAccountId,
+                onAccountSelected = { selectedAccountId = it }
+            )
+
+            if (selectedTab == 2) {
+                AccountSelectorSection(
+                    title = "A la cuenta",
+                    accounts = accounts.filter { it.id != selectedAccountId },
+                    selectedAccountId = selectedToAccountId,
+                    onAccountSelected = { selectedToAccountId = it }
+                )
+            }
+        )
+    }
+
+            PremiumTransactionTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = "Título",
+                placeholder = "Ej. Cena con amigos",
+                minLines = 1
             )
         }
     }
 }
 
-@Composable
-private fun DateTimeSelectorRow(
-    dateText: String,
-    timeText: String,
-    onDateClick: () -> Unit,
-    onTimeClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        DateTimePill(
-            text = dateText,
-            icon = Icons.Default.DateRange,
-            accentColor = TransactionPalette.Lavender,
-            onClick = onDateClick,
-            modifier = Modifier.weight(1f)
-        )
-        DateTimePill(
-            text = timeText,
-            icon = Icons.Default.AccessTime,
-            accentColor = TransactionPalette.Sky,
-            onClick = onTimeClick,
-            modifier = Modifier.weight(0.78f)
-        )
-    }
-}
-
-@Composable
-private fun DateTimePill(
-    text: String,
-    icon: ImageVector,
-    accentColor: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(56.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = TransactionPalette.ElevatedCard,
-        border = BorderStroke(1.dp, TransactionPalette.Border)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.16f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(18.dp))
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = text,
-                color = TransactionPalette.TextPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            Icon(
-                Icons.Default.KeyboardArrowDown,
-                contentDescription = null,
-                tint = TransactionPalette.TextSecondary,
-                modifier = Modifier.size(20.dp)
+            PremiumTransactionTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                label = "Notas",
+                placeholder = "Agrega una nota opcional…",
+                minLines = 3
             )
         }
     }
 }
 
-@Composable
-private fun AccountSelectorSection(
-    title: String,
-    accounts: List<AccountResponse>,
-    selectedAccountId: Long?,
-    onAccountSelected: (Long) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = title,
-            color = TransactionPalette.TextPrimary,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(end = 4.dp)
-        ) {
-            items(accounts) { account ->
-                TransactionAccountCard(
-                    account = account,
-                    selected = selectedAccountId == account.id,
-                    onClick = { onAccountSelected(account.id) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TransactionAccountCard(
-    account: AccountResponse,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val visual = getTransactionAccountVisual(account)
-
-    Surface(
-        onClick = onClick,
-        modifier = Modifier
-            .width(224.dp)
-            .height(108.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = if (selected) visual.color.copy(alpha = 0.14f) else TransactionPalette.Card,
-        border = BorderStroke(
-            width = if (selected) 2.dp else 1.dp,
-            color = if (selected) visual.color else TransactionPalette.Border
-        ),
-        tonalElevation = if (selected) 6.dp else 2.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            TransactionPalette.ElevatedCard.copy(alpha = 0.9f),
-                            TransactionPalette.Card,
-                            visual.color.copy(alpha = if (selected) 0.18f else 0.08f)
-                        )
-                    )
-                )
-                .padding(14.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(visual.backgroundColor),
-                    contentAlignment = Alignment.Center
+            if (selectedTab != 2) {
+                val selectedCategory = categories.find { it.id == selectedCategoryId }
+                
+                Surface(
+                    onClick = { showCategorySheet = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Icon(
                         imageVector = visual.icon,
@@ -1320,6 +1002,521 @@ private fun countCategoryMovements(
 
 private fun movementCountLabel(count: Int): String {
     return if (count == 1) "1 mov." else "$count movs."
+}
+
+@Composable
+private fun SaveTransactionBottomBar(
+    error: String?,
+    isLoading: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        color = TransactionPalette.Background.copy(alpha = 0.96f),
+        tonalElevation = 8.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 14.dp)
+        ) {
+            if (error != null) {
+                Text(
+                    text = error,
+                    color = TransactionPalette.Coral,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(58.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            if (enabled) {
+                                listOf(
+                                    TransactionPalette.LavenderStrong,
+                                    TransactionPalette.Lavender,
+                                    Color(0xFFC4B5FD)
+                                )
+                            } else {
+                                listOf(
+                                    TransactionPalette.ElevatedCard,
+                                    TransactionPalette.Card
+                                )
+                            }
+                        )
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = if (enabled) 0.16f else 0.06f),
+                        shape = RoundedCornerShape(999.dp)
+                    )
+                    .clickable(enabled = enabled, onClick = onClick),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(
+                        text = "Guardar",
+                        color = if (enabled) TransactionPalette.TextPrimary else TransactionPalette.TextSecondary,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransactionTypeSegmentedControl(
+    tabs: List<String>,
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp)
+            .background(TransactionPalette.ElevatedCard, RoundedCornerShape(24.dp))
+            .border(1.dp, TransactionPalette.Border, RoundedCornerShape(24.dp))
+            .padding(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        tabs.forEachIndexed { index, label ->
+            val selected = selectedTab == index
+            val accent = getTransactionTypeAccent(index)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(19.dp))
+                    .background(
+                        if (selected) accent.copy(alpha = 0.16f) else Color.Transparent,
+                        RoundedCornerShape(19.dp)
+                    )
+                    .clickable { onTabSelected(index) }
+                    .padding(horizontal = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = label,
+                    color = if (selected) TransactionPalette.TextPrimary else TransactionPalette.TextSecondary,
+                    fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .width(if (selected) 28.dp else 12.dp)
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (selected) accent else Color.Transparent)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AmountInputCard(
+    amount: String,
+    currencySymbol: String,
+    accentColor: Color,
+    onAmountChange: (String) -> Unit
+) {
+    val amountFontSize = when {
+        amount.length > 10 -> 30.sp
+        amount.length > 7 -> 35.sp
+        else -> 42.sp
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(30.dp),
+        color = TransactionPalette.Card,
+        tonalElevation = 4.dp,
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.28f))
+    ) {
+        Row(
+            modifier = Modifier
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            TransactionPalette.ElevatedCard.copy(alpha = 0.96f),
+                            TransactionPalette.Card,
+                            accentColor.copy(alpha = 0.13f)
+                        )
+                    )
+                )
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = currencySymbol,
+                color = accentColor,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            TextField(
+                value = amount,
+                onValueChange = onAmountChange,
+                placeholder = {
+                    Text(
+                        "0.00",
+                        color = TransactionPalette.TextSecondary,
+                        fontSize = amountFontSize,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                maxLines = 1,
+                textStyle = LocalTextStyle.current.copy(
+                    color = TransactionPalette.TextPrimary,
+                    fontSize = amountFontSize,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.End
+                ),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = accentColor
+                ),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DateTimeSelectorRow(
+    dateText: String,
+    timeText: String,
+    onDateClick: () -> Unit,
+    onTimeClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        DateTimePill(
+            text = dateText,
+            icon = Icons.Default.DateRange,
+            accentColor = TransactionPalette.Lavender,
+            onClick = onDateClick,
+            modifier = Modifier.weight(1f)
+        )
+        DateTimePill(
+            text = timeText,
+            icon = Icons.Default.AccessTime,
+            accentColor = TransactionPalette.Sky,
+            onClick = onTimeClick,
+            modifier = Modifier.weight(0.78f)
+        )
+    }
+}
+
+@Composable
+private fun DateTimePill(
+    text: String,
+    icon: ImageVector,
+    accentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(56.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = TransactionPalette.ElevatedCard,
+        border = BorderStroke(1.dp, TransactionPalette.Border)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = text,
+                color = TransactionPalette.TextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                tint = TransactionPalette.TextSecondary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AccountSelectorSection(
+    title: String,
+    accounts: List<AccountResponse>,
+    selectedAccountId: Long?,
+    onAccountSelected: (Long) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = title,
+            color = TransactionPalette.TextPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(end = 4.dp)
+        ) {
+            items(accounts) { account ->
+                TransactionAccountCard(
+                    account = account,
+                    selected = selectedAccountId == account.id,
+                    onClick = { onAccountSelected(account.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransactionAccountCard(
+    account: AccountResponse,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val visual = getTransactionAccountVisual(account)
+
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .width(224.dp)
+            .height(108.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = if (selected) visual.color.copy(alpha = 0.14f) else TransactionPalette.Card,
+        border = BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) visual.color else TransactionPalette.Border
+        ),
+        tonalElevation = if (selected) 6.dp else 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            TransactionPalette.ElevatedCard.copy(alpha = 0.9f),
+                            TransactionPalette.Card,
+                            visual.color.copy(alpha = if (selected) 0.18f else 0.08f)
+                        )
+                    )
+                )
+                .padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(visual.backgroundColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = visual.icon,
+                        contentDescription = null,
+                        tint = visual.color,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = account.name,
+                        color = TransactionPalette.TextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = formatTransactionAccountBalance(account),
+                        color = TransactionPalette.TextSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(visual.color)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (selected) "Seleccionada" else "Cuenta",
+                    color = if (selected) TransactionPalette.TextPrimary else TransactionPalette.TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (selected) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Cuenta seleccionada",
+                        tint = visual.color,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PremiumTransactionTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    minLines: Int
+) {
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label) },
+        placeholder = { Text(placeholder) },
+        shape = RoundedCornerShape(24.dp),
+        singleLine = minLines == 1,
+        minLines = minLines,
+        maxLines = if (minLines == 1) 1 else 5,
+        textStyle = LocalTextStyle.current.copy(
+            color = TransactionPalette.TextPrimary,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold
+        ),
+        colors = TextFieldDefaults.colors(
+            focusedTextColor = TransactionPalette.TextPrimary,
+            unfocusedTextColor = TransactionPalette.TextPrimary,
+            focusedContainerColor = TransactionPalette.ElevatedCard,
+            unfocusedContainerColor = TransactionPalette.ElevatedCard,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            cursorColor = TransactionPalette.Lavender,
+            focusedLabelColor = TransactionPalette.Lavender,
+            unfocusedLabelColor = TransactionPalette.TextSecondary,
+            focusedPlaceholderColor = TransactionPalette.TextSecondary,
+            unfocusedPlaceholderColor = TransactionPalette.TextSecondary
+        )
+    )
+}
+
+@Composable
+private fun CategorySelectorCard(
+    selectedCategory: CategoryResponse?,
+    fallbackCategoryName: String?,
+    selectedTab: Int,
+    onClick: () -> Unit
+) {
+    val categoryName = selectedCategory?.name ?: fallbackCategoryName
+    val accentColor = parseTransactionColor(selectedCategory?.color) ?: getTransactionTypeAccent(selectedTab)
+    val title = categoryName ?: "Selecciona una categoría"
+    val subtext = if (categoryName == null) {
+        if (selectedTab == 0) "Elige una categoría para tu gasto" else "Elige una categoría para tu ingreso"
+    } else {
+        if (selectedTab == 0) "Categoría de gasto" else "Categoría de ingreso"
+    }
+
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = TransactionPalette.ElevatedCard,
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.28f)),
+        tonalElevation = 3.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(accentColor.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = getEmojiForCategory(categoryName, selectedCategory?.icon),
+                    fontSize = 24.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    color = TransactionPalette.TextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = subtext,
+                    color = TransactionPalette.TextSecondary,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Icon(
+                Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                tint = TransactionPalette.TextSecondary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
 }
 
 @Composable
