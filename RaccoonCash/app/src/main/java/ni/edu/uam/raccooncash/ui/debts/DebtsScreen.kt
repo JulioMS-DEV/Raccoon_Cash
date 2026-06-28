@@ -249,9 +249,11 @@ fun DebtsScreen(
 fun AddDebtScreen(
     viewModel: DebtsViewModel,
     debtToEdit: DebtResponse? = null,
+    onSaved: () -> Unit = {},
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val accounts by viewModel.accounts.collectAsState()
     val error by viewModel.error.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -260,11 +262,19 @@ fun AddDebtScreen(
     var totalAmount by remember(debtToEdit?.id) { mutableStateOf(formatEditableMoney(debtToEdit?.totalAmount)) }
     var type by remember(debtToEdit?.id) { mutableStateOf(debtToEdit?.type ?: "I_OWE") }
     var dueDate by remember(debtToEdit?.id) { mutableStateOf(parseLocalDate(debtToEdit?.dueDate)) }
+    var selectedInitialAccountId by remember(debtToEdit?.id) { mutableStateOf(debtToEdit?.accountId) }
     var reminderEnabled by remember(debtToEdit?.id) { mutableStateOf(debtToEdit?.reminderEnabled ?: false) }
     var isSaving by remember(debtToEdit?.id) { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.resetSuccess()
+        viewModel.loadAccounts()
+    }
+
+    LaunchedEffect(accounts, debtToEdit?.id) {
+        if (debtToEdit == null && accounts.isNotEmpty() && accounts.none { it.id == selectedInitialAccountId }) {
+            selectedInitialAccountId = accounts.first().id
+        }
     }
 
     LaunchedEffect(error) {
@@ -278,7 +288,10 @@ fun AddDebtScreen(
 
     val amountValue = parseMoneyInput(totalAmount)
     val effectiveReminderEnabled = reminderEnabled && dueDate != null
-    val isFormValid = personName.isNotBlank() && amountValue != null && amountValue > 0.0
+    val isFormValid = personName.isNotBlank() &&
+        amountValue != null &&
+        amountValue > 0.0 &&
+        (debtToEdit != null || selectedInitialAccountId != null)
     val accentColor = debtFormAccent(type)
 
     fun showDueDatePicker() {
@@ -302,6 +315,10 @@ fun AddDebtScreen(
             Toast.makeText(context, "Ingresa un monto mayor a cero.", Toast.LENGTH_SHORT).show()
             return
         }
+        if (debtToEdit == null && selectedInitialAccountId == null) {
+            Toast.makeText(context, "Selecciona la cuenta del movimiento inicial.", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         val amount = amountValue
         val dueDateText = dueDate?.format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -319,10 +336,13 @@ fun AddDebtScreen(
                 totalAmount = amount,
                 type = type,
                 dueDate = dueDateText,
-                accountId = null,
+                accountId = selectedInitialAccountId,
                 reminderEnabled = effectiveReminderEnabled,
                 reminderAt = reminderAt,
-                onCompleted = onBack
+                onCompleted = {
+                    onSaved()
+                    onBack()
+                }
             )
         } else {
             viewModel.updateDebt(
@@ -332,10 +352,13 @@ fun AddDebtScreen(
                 totalAmount = amount,
                 type = type,
                 dueDate = dueDateText,
-                accountId = null,
+                accountId = debtToEdit.accountId,
                 reminderEnabled = effectiveReminderEnabled,
                 reminderAt = reminderAt,
-                onCompleted = onBack
+                onCompleted = {
+                    onSaved()
+                    onBack()
+                }
             )
         }
     }
@@ -428,6 +451,21 @@ fun AddDebtScreen(
                 icon = Icons.Default.Description,
                 minLines = 3
             )
+
+            if (debtToEdit == null) {
+                DebtPaymentAccountSelector(
+                    accounts = accounts,
+                    selectedAccountId = selectedInitialAccountId,
+                    onSelected = { selectedInitialAccountId = it },
+                    title = "Cuenta del movimiento inicial",
+                    supportingText = if (type == "I_OWE") {
+                        "Aquí entrará el dinero prestado al crear la deuda."
+                    } else {
+                        "De aquí saldrá el dinero que prestaste al crear la deuda."
+                    },
+                    selectedLabel = "Movimiento inicial"
+                )
+            }
 
             DebtDueDateCard(
                 dueDate = dueDate,
@@ -1382,15 +1420,26 @@ private fun DebtPaymentDateCard(
 private fun DebtPaymentAccountSelector(
     accounts: List<AccountResponse>,
     selectedAccountId: Long?,
-    onSelected: (Long) -> Unit
+    onSelected: (Long) -> Unit,
+    title: String = "Seleccionar cuenta",
+    supportingText: String? = null,
+    selectedLabel: String = "Seleccionada"
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            text = "Seleccionar cuenta",
+            text = title,
             color = DebtsPalette.TextPrimary,
             fontSize = 18.sp,
             fontWeight = FontWeight.ExtraBold
         )
+        supportingText?.let {
+            Text(
+                text = it,
+                color = DebtsPalette.TextSecondary,
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+            )
+        }
 
         if (accounts.isEmpty()) {
             Surface(
@@ -1415,6 +1464,7 @@ private fun DebtPaymentAccountSelector(
                     DebtPaymentAccountCard(
                         account = account,
                         selected = selectedAccountId == account.id,
+                        selectedLabel = selectedLabel,
                         onClick = { onSelected(account.id) }
                     )
                 }
@@ -1427,6 +1477,7 @@ private fun DebtPaymentAccountSelector(
 private fun DebtPaymentAccountCard(
     account: AccountResponse,
     selected: Boolean,
+    selectedLabel: String = "Seleccionada",
     onClick: () -> Unit
 ) {
     val visual = getDebtPaymentAccountVisual(account)
@@ -1502,7 +1553,7 @@ private fun DebtPaymentAccountCard(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (selected) "Seleccionada" else "Cuenta",
+                    text = if (selected) selectedLabel else "Cuenta",
                     color = if (selected) DebtsPalette.TextPrimary else DebtsPalette.TextSecondary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold

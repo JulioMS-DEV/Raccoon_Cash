@@ -101,8 +101,8 @@ public class TransaccionServicio {
     }
 
     private void ensureTransactionCanBeManagedDirectly(Transaccion transaction) {
-        if (Boolean.TRUE.equals(transaction.getGeneratedByDebtPayment())) {
-            throw new SolicitudIncorrectaException("Las transacciones generadas por pagos de deuda se gestionan desde el modulo de deudas");
+        if (Boolean.TRUE.equals(transaction.getGeneratedByDebtPayment()) || transaction.getDebt() != null) {
+            throw new SolicitudIncorrectaException("Las transacciones vinculadas a deudas se gestionan desde el modulo de deudas");
         }
     }
 

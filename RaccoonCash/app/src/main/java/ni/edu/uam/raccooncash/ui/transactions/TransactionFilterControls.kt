@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +49,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -208,8 +211,11 @@ fun TransactionFilterSheet(
     onFiltersChange: (TransactionFilterState) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = FilterSheetPalette.Background,
         dragHandle = {
             Box(
@@ -224,8 +230,8 @@ fun TransactionFilterSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.92f)
                 .heightIn(max = 680.dp)
-                .verticalScroll(rememberScrollState())
                 .background(
                     Brush.verticalGradient(
                         listOf(
@@ -235,77 +241,89 @@ fun TransactionFilterSheet(
                         )
                     )
                 )
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 14.dp)
         ) {
-            FilterSheetHeader(
-                hasActiveFilters = filters.hasActiveFilters,
-                onClearAll = { onFiltersChange(TransactionFilterState()) }
-            )
-
-            SelectedFiltersList(
-                filters = filters,
-                onFiltersChange = onFiltersChange
-            )
-
-            FilterSection(title = "Tipo de transacción") {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    TransactionTypeChip("Gasto", filters.selectedTypes.contains("EXPENSE"), FilterSheetPalette.Coral, Icons.Default.ArrowDownward) {
-                        onFiltersChange(filters.toggleType("EXPENSE"))
-                    }
-                    TransactionTypeChip("Ingreso", filters.selectedTypes.contains("INCOME"), FilterSheetPalette.Mint, Icons.Default.ArrowUpward) {
-                        onFiltersChange(filters.toggleType("INCOME"))
-                    }
-                    TransactionTypeChip("Transferencia", filters.selectedTypes.contains("TRANSFER"), FilterSheetPalette.Sky, Icons.Default.SwapHoriz) {
-                        onFiltersChange(filters.toggleType("TRANSFER"))
-                    }
-                }
-            }
-
-            FilterSection(title = "Título") {
-                OutlinedTextField(
-                    value = filters.titleQuery,
-                    onValueChange = { onFiltersChange(filters.copy(titleQuery = it)) },
-                    label = { Text("Título") },
-                    placeholder = { Text("Buscar por título") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = FilterSheetPalette.TextSecondary)
-                    },
-                    singleLine = true,
-                    colors = filterTextFieldColors(),
-                    shape = RoundedCornerShape(16.dp),
-                    textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 52.dp)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(top = 8.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FilterSheetHeader(
+                    hasActiveFilters = filters.hasActiveFilters,
+                    onClearAll = { onFiltersChange(TransactionFilterState()) }
                 )
-            }
 
-            FilterSection(title = "Monto") {
-                Text("Déjalo vacío si no quieres filtrar por monto.", color = FilterSheetPalette.TextSecondary, fontSize = 12.sp)
-                AmountFields(filters = filters, onFiltersChange = onFiltersChange)
-            }
-
-            FilterSection(title = "Categorías y subcategorías") {
-                Text(
-                    "Elige una categoría completa o subcategorías específicas.",
-                    color = FilterSheetPalette.TextSecondary,
-                    fontSize = 12.sp
-                )
-                CategoryFilterList(
-                    categories = categories,
+                SelectedFiltersList(
                     filters = filters,
                     onFiltersChange = onFiltersChange
                 )
+
+                FilterSection(title = "Tipo de transacción") {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TransactionTypeChip("Gasto", filters.selectedTypes.contains("EXPENSE"), FilterSheetPalette.Coral, Icons.Default.ArrowDownward) {
+                            onFiltersChange(filters.toggleType("EXPENSE"))
+                        }
+                        TransactionTypeChip("Ingreso", filters.selectedTypes.contains("INCOME"), FilterSheetPalette.Mint, Icons.Default.ArrowUpward) {
+                            onFiltersChange(filters.toggleType("INCOME"))
+                        }
+                        TransactionTypeChip("Transferencia", filters.selectedTypes.contains("TRANSFER"), FilterSheetPalette.Sky, Icons.Default.SwapHoriz) {
+                            onFiltersChange(filters.toggleType("TRANSFER"))
+                        }
+                    }
+                }
+
+                FilterSection(title = "Título") {
+                    OutlinedTextField(
+                        value = filters.titleQuery,
+                        onValueChange = { onFiltersChange(filters.copy(titleQuery = it)) },
+                        label = { Text("Título") },
+                        placeholder = { Text("Buscar por título") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = FilterSheetPalette.TextSecondary)
+                        },
+                        singleLine = true,
+                        colors = filterTextFieldColors(),
+                        shape = RoundedCornerShape(16.dp),
+                        textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 52.dp)
+                    )
+                }
+
+                FilterSection(title = "Monto") {
+                    Text("Déjalo vacío si no quieres filtrar por monto.", color = FilterSheetPalette.TextSecondary, fontSize = 12.sp)
+                    AmountFields(filters = filters, onFiltersChange = onFiltersChange)
+                }
+
+                FilterSection(title = "Categorías y subcategorías") {
+                    Text(
+                        "Elige una categoría completa o subcategorías específicas.",
+                        color = FilterSheetPalette.TextSecondary,
+                        fontSize = 12.sp
+                    )
+                    CategoryFilterList(
+                        categories = categories,
+                        filters = filters,
+                        onFiltersChange = onFiltersChange
+                    )
+                }
             }
 
-            ApplyFiltersButton(onClick = onDismiss)
-
-            Spacer(modifier = Modifier.height(12.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(top = 8.dp, bottom = 12.dp)
+            ) {
+                ApplyFiltersButton(onClick = onDismiss)
+            }
         }
     }
 }
