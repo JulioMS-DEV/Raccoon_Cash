@@ -4,6 +4,7 @@ import com.raccooncash.api.categoria.Categoria;
 import com.raccooncash.api.deuda.Deuda;
 import com.raccooncash.api.presupuesto.Presupuesto;
 import com.raccooncash.api.savinggoal.SavingGoal;
+import com.raccooncash.api.usuario.Usuario;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -25,6 +26,9 @@ public class Transaccion {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
     @Column(nullable = false)
     private String description;
     @Column(nullable = false)
@@ -80,6 +84,12 @@ public class Transaccion {
     }
     public void setId(Long id) {
         this.id = id;
+    }
+    public Usuario getUsuario() {
+        return usuario;
+    }
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
     }
     public String getDescription() {
         return description;

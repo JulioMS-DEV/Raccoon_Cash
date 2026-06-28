@@ -8,7 +8,7 @@ import java.util.Optional;
 
 @Repository
 public interface PresupuestoRepositorio extends JpaRepository<Presupuesto, Long> {
-    List<Presupuesto> findAllByActiveTrueOrderByStartDateDesc();
-    Optional<Presupuesto> findByIdAndActiveTrue(Long id);
-    long countByActiveTrue();
+    List<Presupuesto> findAllByUsuarioIdAndActiveTrueOrderByStartDateDesc(Long usuarioId);
+    Optional<Presupuesto> findByIdAndUsuarioIdAndActiveTrue(Long id, Long usuarioId);
+    long countByUsuarioIdAndActiveTrue(Long usuarioId);
 }

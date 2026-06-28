@@ -5,6 +5,12 @@ import retrofit2.Response
 import retrofit2.http.*
 
 interface ApiService {
+    @POST("auth/registro")
+    suspend fun registrarUsuario(@Body request: RegistroSolicitud): AuthRespuesta
+
+    @POST("auth/login")
+    suspend fun loginUsuario(@Body request: LoginSolicitud): AuthRespuesta
+
     @GET("accounts")
     suspend fun getAccounts(): List<AccountResponse>
 

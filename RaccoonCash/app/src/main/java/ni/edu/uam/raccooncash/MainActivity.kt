@@ -36,13 +36,16 @@ import ni.edu.uam.raccooncash.data.model.PresupuestoRespuesta
 import ni.edu.uam.raccooncash.data.model.TipoPeriodoPresupuesto
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
 import ni.edu.uam.raccooncash.data.model.SavingGoalResponse
+import ni.edu.uam.raccooncash.data.remote.RetrofitClient
 import ni.edu.uam.raccooncash.data.security.PinSecurityStore
+import ni.edu.uam.raccooncash.data.session.SessionManager
 import ni.edu.uam.raccooncash.ui.account_details.AccountDetailsScreen
 import ni.edu.uam.raccooncash.ui.accounts.AccountsScreen
 import ni.edu.uam.raccooncash.ui.accounts.AccountsViewModel
 import ni.edu.uam.raccooncash.ui.accounts.AddAccountScreen
 import ni.edu.uam.raccooncash.ui.accounts.getAccountVisual
 import ni.edu.uam.raccooncash.ui.accounts.getEmojiForCategory
+import ni.edu.uam.raccooncash.ui.auth.AuthScreen
 import ni.edu.uam.raccooncash.ui.budgets.AddBudgetScreen
 import ni.edu.uam.raccooncash.ui.budgets.BudgetDetailsScreen
 import ni.edu.uam.raccooncash.ui.budgets.BudgetsScreen
@@ -78,17 +81,32 @@ import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private lateinit var pinSecurityStore: PinSecurityStore
+    private lateinit var sessionManager: SessionManager
     private val isAppLocked = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        sessionManager = SessionManager(this)
+        RetrofitClient.initialize(this)
         pinSecurityStore = PinSecurityStore(this)
         isAppLocked.value = pinSecurityStore.isPinEnabled()
 
         setContent {
             RaccoonCashTheme {
                 var isPinEnabled by remember { mutableStateOf(pinSecurityStore.isPinEnabled()) }
+                var sessionUserId by remember { mutableStateOf(sessionManager.getUsuarioId()) }
+
+                if (sessionUserId == null) {
+                    AuthScreen(
+                        sessionManager = sessionManager,
+                        onAuthenticated = { auth ->
+                            sessionUserId = auth.id
+                            isAppLocked.value = false
+                        }
+                    )
+                    return@RaccoonCashTheme
+                }
 
                 if (isPinEnabled && isAppLocked.value) {
                     PinLockScreen(
@@ -119,6 +137,42 @@ class MainActivity : ComponentActivity() {
                 var budgetTransactionInitialDescription by remember { mutableStateOf("") }
                 var budgetTransactionInitialDate by remember { mutableStateOf<LocalDate?>(null) }
                 var budgetTransactionInitialCategoryId by remember { mutableStateOf<Long?>(null) }
+
+                fun clearScreenState() {
+                    currentScreen = "inicio"
+                    editingTransaction = null
+                    editingAccount = null
+                    selectedAccountDetails = null
+                    selectedDebt = null
+                    editingDebt = null
+                    selectedSavingGoal = null
+                    editingSavingGoal = null
+                    editingGoalTransaction = null
+                    selectedBudget = null
+                    editingBudget = null
+                    budgetTransactionInitialType = null
+                    budgetTransactionInitialDescription = ""
+                    budgetTransactionInitialDate = null
+                    budgetTransactionInitialCategoryId = null
+                }
+
+                fun clearLoadedUserData() {
+                    accountsViewModel.clearSessionData()
+                    transactionsViewModel.clearSessionData()
+                    savingsViewModel.clearSessionData()
+                    budgetsViewModel.clearSessionData()
+                    debtsViewModel.clearSessionData()
+                }
+
+                LaunchedEffect(sessionUserId) {
+                    clearScreenState()
+                    accountsViewModel.loadAccounts()
+                    transactionsViewModel.refreshInitialData()
+                    debtsViewModel.loadAccounts()
+                    debtsViewModel.loadDebts()
+                    budgetsViewModel.loadBudgets()
+                    savingsViewModel.loadSavingGoals()
+                }
 
                 Scaffold(
                     bottomBar = {
@@ -433,7 +487,16 @@ class MainActivity : ComponentActivity() {
                             }
                             "settings" -> SettingsScreen(
                                 onBack = { currentScreen = "inicio" },
-                                onSecurityClick = { currentScreen = "security" }
+                                onSecurityClick = { currentScreen = "security" },
+                                userName = sessionManager.getNombre(),
+                                userEmail = sessionManager.getCorreo(),
+                                onLogout = {
+                                    clearScreenState()
+                                    clearLoadedUserData()
+                                    sessionManager.clearSession()
+                                    sessionUserId = null
+                                    isAppLocked.value = false
+                                }
                             )
                             "security" -> SecurityScreen(
                                 pinSecurityStore = pinSecurityStore,

@@ -10,6 +10,8 @@ import com.raccooncash.api.excepcion.SolicitudIncorrectaException;
 import com.raccooncash.api.transaccion.TipoTransaccion;
 import com.raccooncash.api.transaccion.Transaccion;
 import com.raccooncash.api.transaccion.TransaccionRepositorio;
+import com.raccooncash.api.usuario.Usuario;
+import com.raccooncash.api.usuario.UsuarioServicio;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,28 +32,32 @@ public class DeudaServicio {
     private final CuentaRepositorio accountRepository;
     private final TransaccionRepositorio transactionRepository;
     private final CategoriaRepositorio categoryRepository;
+    private final UsuarioServicio usuarioServicio;
 
     public DeudaServicio(DeudaRepositorio debtRepository,
                           PagoDeudaRepositorio paymentRepository,
                           CuentaRepositorio accountRepository,
                           TransaccionRepositorio transactionRepository,
-                          CategoriaRepositorio categoryRepository) {
+                          CategoriaRepositorio categoryRepository,
+                          UsuarioServicio usuarioServicio) {
         this.debtRepository = debtRepository;
         this.paymentRepository = paymentRepository;
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.categoryRepository = categoryRepository;
+        this.usuarioServicio = usuarioServicio;
     }
 
     @Transactional(readOnly = true)
-    public List<DeudaRespuesta> getAllDebts(TipoDeuda type,
-                                            EstadoDeuda status,
-                                            Long accountId,
+    public List<DeudaRespuesta> getAllDebts(Long usuarioId,
+                                             TipoDeuda type,
+                                             EstadoDeuda status,
+                                             Long accountId,
                                             LocalDate dueFrom,
                                             LocalDate dueTo,
                                             Boolean overdue,
                                             String search) {
-        return debtRepository.findAllByActiveTrueOrderByCreatedAtDesc()
+        return debtRepository.findAllByUsuarioIdAndActiveTrueOrderByCreatedAtDesc(usuarioId)
                 .stream()
                 .filter(debt -> matchesType(debt, type))
                 .filter(debt -> matchesStatus(debt, status))
@@ -64,19 +70,21 @@ public class DeudaServicio {
     }
 
     @Transactional(readOnly = true)
-    public DeudaRespuesta getDebtById(Long id) {
-        return new DeudaRespuesta(findActiveDebt(id));
+    public DeudaRespuesta getDebtById(Long usuarioId, Long id) {
+        return new DeudaRespuesta(findActiveDebt(usuarioId, id));
     }
 
     @Transactional
-    public DeudaRespuesta createDebt(DeudaSolicitud request) {
+    public DeudaRespuesta createDebt(Long usuarioId, DeudaSolicitud request) {
         validateDebtRequest(request);
         if (request.getAccountId() == null) {
             throw new SolicitudIncorrectaException("La cuenta del movimiento inicial es obligatoria");
         }
-        Cuenta account = findActiveAccount(request.getAccountId());
+        Usuario usuario = usuarioServicio.obtenerUsuario(usuarioId);
+        Cuenta account = findActiveAccount(usuarioId, request.getAccountId());
 
         Deuda debt = new Deuda();
+        debt.setUsuario(usuario);
         debt.setPersonName(request.getPersonName().trim());
         debt.setDescription(request.getDescription());
         debt.setTotalAmount(money(request.getTotalAmount()));
@@ -98,16 +106,16 @@ public class DeudaServicio {
     }
 
     @Transactional
-    public DeudaRespuesta updateDebt(Long id, DeudaSolicitud request) {
+    public DeudaRespuesta updateDebt(Long usuarioId, Long id, DeudaSolicitud request) {
         validateDebtRequest(request);
-        Deuda debt = findActiveDebt(id);
-        Cuenta account = request.getAccountId() != null ? findActiveAccount(request.getAccountId()) : null;
+        Deuda debt = findActiveDebt(usuarioId, id);
+        Cuenta account = request.getAccountId() != null ? findActiveAccount(usuarioId, request.getAccountId()) : null;
 
         BigDecimal paidAmount = money(safeAmount(debt.getPaidAmount()));
         if (request.getTotalAmount().compareTo(paidAmount) < 0) {
             throw new SolicitudIncorrectaException("El monto total no puede ser menor que lo ya pagado");
         }
-        if (debt.getType() != request.getType() && paymentRepository.existsByDebtIdAndActiveTrue(id)) {
+        if (debt.getType() != request.getType() && paymentRepository.existsByDebt_IdAndDebt_Usuario_IdAndActiveTrue(id, usuarioId)) {
             throw new SolicitudIncorrectaException("No se puede cambiar el tipo de deuda porque ya tiene pagos registrados");
         }
 
@@ -127,9 +135,9 @@ public class DeudaServicio {
     }
 
     @Transactional
-    public void deleteDebt(Long id) {
-        Deuda debt = findActiveDebt(id);
-        List<Transaccion> transactions = transactionRepository.findActiveByDebtId(id);
+    public void deleteDebt(Long usuarioId, Long id) {
+        Deuda debt = findActiveDebt(usuarioId, id);
+        List<Transaccion> transactions = transactionRepository.findActiveByDebtId(id, usuarioId);
         for (Transaccion transaction : transactions) {
             reverseTransactionEffect(transaction);
             transaction.setActive(false);
@@ -137,7 +145,7 @@ public class DeudaServicio {
             transactionRepository.save(transaction);
         }
 
-        List<PagoDeuda> payments = paymentRepository.findAllByDebtIdAndActiveTrue(id);
+        List<PagoDeuda> payments = paymentRepository.findAllByDebt_IdAndDebt_Usuario_IdAndActiveTrue(id, usuarioId);
         for (PagoDeuda payment : payments) {
             payment.setActive(false);
             paymentRepository.save(payment);
@@ -151,12 +159,12 @@ public class DeudaServicio {
     }
 
     @Transactional
-    public PagoDeudaRespuesta addPayment(Long debtId, PagoDeudaSolicitud request) {
+    public PagoDeudaRespuesta addPayment(Long usuarioId, Long debtId, PagoDeudaSolicitud request) {
         validatePaymentRequest(request);
-        Deuda debt = findActiveDebt(debtId);
+        Deuda debt = findActiveDebt(usuarioId, debtId);
         ensureDebtAllowsPayments(debt);
 
-        Cuenta account = findActiveAccount(request.getAccountId());
+        Cuenta account = findActiveAccount(usuarioId, request.getAccountId());
         BigDecimal amount = money(request.getAmount());
         if (amount.compareTo(safeAmount(debt.getRemainingAmount())) > 0) {
             throw new SolicitudIncorrectaException("El pago no puede ser mayor que el monto pendiente");
@@ -187,18 +195,18 @@ public class DeudaServicio {
     }
 
     @Transactional(readOnly = true)
-    public List<PagoDeudaRespuesta> getPayments(Long debtId) {
-        findActiveDebt(debtId);
-        return paymentRepository.findAllByDebtIdAndActiveTrueOrderByPaymentDateDescCreatedAtDesc(debtId)
+    public List<PagoDeudaRespuesta> getPayments(Long usuarioId, Long debtId) {
+        findActiveDebt(usuarioId, debtId);
+        return paymentRepository.findAllByDebt_IdAndDebt_Usuario_IdAndActiveTrueOrderByPaymentDateDescCreatedAtDesc(debtId, usuarioId)
                 .stream()
                 .map(PagoDeudaRespuesta::new)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public void deletePayment(Long debtId, Long paymentId) {
-        Deuda debt = findActiveDebt(debtId);
-        PagoDeuda payment = paymentRepository.findByIdAndDebtIdAndActiveTrue(paymentId, debtId)
+    public void deletePayment(Long usuarioId, Long debtId, Long paymentId) {
+        Deuda debt = findActiveDebt(usuarioId, debtId);
+        PagoDeuda payment = paymentRepository.findByIdAndDebt_IdAndDebt_Usuario_IdAndActiveTrue(paymentId, debtId, usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Pago de deuda no encontrado"));
 
         Cuenta account = payment.getAccount() != null ? payment.getAccount() : debt.getAccount();
@@ -223,9 +231,9 @@ public class DeudaServicio {
     }
 
     @Transactional(readOnly = true)
-    public List<DeudaRespuesta> getPendingReminders() {
+    public List<DeudaRespuesta> getPendingReminders(Long usuarioId) {
         LocalDateTime now = LocalDateTime.now();
-        return debtRepository.findAllByActiveTrueOrderByCreatedAtDesc()
+        return debtRepository.findAllByUsuarioIdAndActiveTrueOrderByCreatedAtDesc(usuarioId)
                 .stream()
                 .filter(debt -> Boolean.TRUE.equals(debt.getReminderEnabled()))
                 .filter(debt -> debt.getReminderAt() != null && !debt.getReminderAt().isAfter(now))
@@ -241,6 +249,7 @@ public class DeudaServicio {
                                                 LocalDate paymentDate,
                                                 String notes) {
         Transaccion transaction = new Transaccion();
+        transaction.setUsuario(debt.getUsuario());
         transaction.setDescription(paymentDescription(debt));
         transaction.setAmount(amount);
         transaction.setDate(paymentDate.atStartOfDay());
@@ -256,6 +265,7 @@ public class DeudaServicio {
 
     private Transaccion buildInitialDebtTransaction(Deuda debt, Cuenta account) {
         Transaccion transaction = new Transaccion();
+        transaction.setUsuario(debt.getUsuario());
         transaction.setDescription(initialDebtDescription(debt));
         transaction.setAmount(money(debt.getTotalAmount()));
         transaction.setDate(LocalDateTime.now());
@@ -467,13 +477,13 @@ public class DeudaServicio {
                 && debt.getStatus() != EstadoDeuda.CANCELLED;
     }
 
-    private Deuda findActiveDebt(Long id) {
-        return debtRepository.findByIdAndActiveTrue(id)
+    private Deuda findActiveDebt(Long usuarioId, Long id) {
+        return debtRepository.findByIdAndUsuarioIdAndActiveTrue(id, usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Deuda no encontrada"));
     }
 
-    private Cuenta findActiveAccount(Long id) {
-        return accountRepository.findByIdAndActiveTrue(id)
+    private Cuenta findActiveAccount(Long usuarioId, Long id) {
+        return accountRepository.findByIdAndUsuarioIdAndActiveTrue(id, usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Cuenta no encontrada"));
     }
 

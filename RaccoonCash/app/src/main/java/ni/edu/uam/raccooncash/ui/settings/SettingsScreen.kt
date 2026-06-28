@@ -9,7 +9,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -24,7 +26,10 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    onSecurityClick: () -> Unit
+    onSecurityClick: () -> Unit,
+    userName: String?,
+    userEmail: String?,
+    onLogout: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -51,6 +56,21 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            SettingsSection(title = "Sesion") {
+                SettingsItem(
+                    icon = Icons.Default.AccountCircle,
+                    title = userName?.takeIf { it.isNotBlank() } ?: "Usuario",
+                    subtitle = userEmail?.takeIf { it.isNotBlank() } ?: "Sesion activa",
+                    onClick = {}
+                )
+                SettingsItem(
+                    icon = Icons.AutoMirrored.Filled.ExitToApp,
+                    title = "Cerrar sesion",
+                    subtitle = "Salir y cambiar de usuario",
+                    onClick = onLogout
+                )
+            }
+
             SettingsSection(title = "Preferencias") {
                 SettingsItem(
                     icon = Icons.Default.Lock,

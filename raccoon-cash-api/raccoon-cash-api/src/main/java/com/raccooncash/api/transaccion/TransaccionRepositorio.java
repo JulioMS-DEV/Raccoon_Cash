@@ -18,9 +18,10 @@ public interface TransaccionRepositorio extends JpaRepository<Transaccion, Long>
             LEFT JOIN FETCH t.toAccount destination
             LEFT JOIN FETCH t.category category
             WHERE t.id = :id
+              AND t.usuario.id = :usuarioId
               AND (t.active = true OR t.active IS NULL)
             """)
-    Optional<Transaccion> findActiveById(@Param("id") Long id);
+    Optional<Transaccion> findActiveById(@Param("id") Long id, @Param("usuarioId") Long usuarioId);
 
     @Query("""
             SELECT t FROM TransaccionFinanciera t
@@ -28,11 +29,12 @@ public interface TransaccionRepositorio extends JpaRepository<Transaccion, Long>
             LEFT JOIN FETCH t.toAccount destination
             LEFT JOIN FETCH t.category category
             WHERE t.debt.id = :debtId
+              AND t.usuario.id = :usuarioId
               AND (t.active = true OR t.active IS NULL)
             """)
-    List<Transaccion> findActiveByDebtId(@Param("debtId") Long debtId);
+    List<Transaccion> findActiveByDebtId(@Param("debtId") Long debtId, @Param("usuarioId") Long usuarioId);
 
-    List<Transaccion> findBySavingGoalAndActiveTrue(SavingGoal savingGoal);
+    List<Transaccion> findBySavingGoalAndUsuarioIdAndActiveTrue(SavingGoal savingGoal, Long usuarioId);
 
     @Query("""
             SELECT t FROM TransaccionFinanciera t
@@ -41,8 +43,10 @@ public interface TransaccionRepositorio extends JpaRepository<Transaccion, Long>
             LEFT JOIN FETCH t.category category
             LEFT JOIN FETCH t.budget budget
             WHERE budget = :budget
+              AND t.usuario.id = :usuarioId
               AND (t.active = true OR t.active IS NULL)
             ORDER BY t.date DESC
             """)
-    List<Transaccion> findByBudgetAndActive(@Param("budget") Presupuesto budget);
+    List<Transaccion> findByBudgetAndUsuarioIdAndActive(@Param("budget") Presupuesto budget,
+                                                        @Param("usuarioId") Long usuarioId);
 }

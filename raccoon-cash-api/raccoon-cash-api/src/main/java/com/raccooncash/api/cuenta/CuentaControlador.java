@@ -17,28 +17,33 @@ public class CuentaControlador {
     }
 
     @GetMapping
-    public ResponseEntity<List<CuentaRespuesta>> getAllAccounts() {
-        return ResponseEntity.ok(accountService.getAllActiveAccounts());
+    public ResponseEntity<List<CuentaRespuesta>> getAllAccounts(@RequestHeader("X-Usuario-Id") Long usuarioId) {
+        return ResponseEntity.ok(accountService.getAllActiveAccounts(usuarioId));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CuentaRespuesta> getAccountById(@PathVariable Long id) {
-        return ResponseEntity.ok(accountService.getAccountById(id));
+    public ResponseEntity<CuentaRespuesta> getAccountById(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                          @PathVariable Long id) {
+        return ResponseEntity.ok(accountService.getAccountById(usuarioId, id));
     }
 
     @PostMapping
-    public ResponseEntity<CuentaRespuesta> createAccount(@Valid @RequestBody CuentaSolicitud request) {
-        return ResponseEntity.ok(accountService.createAccount(request));
+    public ResponseEntity<CuentaRespuesta> createAccount(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                         @Valid @RequestBody CuentaSolicitud request) {
+        return ResponseEntity.ok(accountService.createAccount(usuarioId, request));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CuentaRespuesta> updateAccount(@PathVariable Long id, @Valid @RequestBody CuentaSolicitud request) {
-        return ResponseEntity.ok(accountService.updateAccount(id, request));
+    public ResponseEntity<CuentaRespuesta> updateAccount(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                         @PathVariable Long id,
+                                                         @Valid @RequestBody CuentaSolicitud request) {
+        return ResponseEntity.ok(accountService.updateAccount(usuarioId, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteAccount(@PathVariable Long id) {
-        accountService.deleteAccount(id);
+    public ResponseEntity<Void> deleteAccount(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                              @PathVariable Long id) {
+        accountService.deleteAccount(usuarioId, id);
         return ResponseEntity.noContent().build();
     }
 }

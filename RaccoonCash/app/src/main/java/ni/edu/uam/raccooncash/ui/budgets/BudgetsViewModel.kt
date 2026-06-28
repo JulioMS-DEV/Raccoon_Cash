@@ -51,6 +51,15 @@ class BudgetsViewModel : ViewModel() {
         }
     }
 
+    fun clearSessionData() {
+        _budgets.value = emptyList()
+        _currentBudgetCategoryLimits.value = emptyList()
+        _budgetCategoryLimitsByBudgetId.value = emptyMap()
+        _isLoading.value = false
+        _operationSuccess.value = false
+        _error.value = null
+    }
+
     fun loadBudgetCategoryLimits(budgetId: Long) {
         viewModelScope.launch {
             try {

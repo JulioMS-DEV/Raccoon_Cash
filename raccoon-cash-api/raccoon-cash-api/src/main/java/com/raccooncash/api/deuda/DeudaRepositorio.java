@@ -8,7 +8,7 @@ import java.util.Optional;
 
 @Repository
 public interface DeudaRepositorio extends JpaRepository<Deuda, Long> {
-    List<Deuda> findAllByActiveTrueOrderByCreatedAtDesc();
-    List<Deuda> findAllByActiveTrue();
-    Optional<Deuda> findByIdAndActiveTrue(Long id);
+    List<Deuda> findAllByUsuarioIdAndActiveTrueOrderByCreatedAtDesc(Long usuarioId);
+    List<Deuda> findAllByUsuarioIdAndActiveTrue(Long usuarioId);
+    Optional<Deuda> findByIdAndUsuarioIdAndActiveTrue(Long id, Long usuarioId);
 }

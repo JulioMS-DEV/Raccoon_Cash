@@ -1,15 +1,24 @@
 package com.raccooncash.api.savinggoal;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.raccooncash.api.transaccion.Transaccion;
+import com.raccooncash.api.usuario.Usuario;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.util.Set;
 
 @Entity
+@Table(name = "saving_goal")
 public class SavingGoal {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
+
     private String name;
     private Double targetAmount;
     private LocalDate deadline;
@@ -26,6 +35,14 @@ public class SavingGoal {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Usuario getUsuario() {
+        return usuario;
+    }
+
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
     }
 
     public String getName() {

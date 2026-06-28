@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Optional;
 @Repository
 public interface CuentaRepositorio extends JpaRepository<Cuenta, Long> {
-    List<Cuenta> findAllByActiveTrue();
-    Optional<Cuenta> findByIdAndActiveTrue(Long id);
-    long countByActiveTrue();
+    List<Cuenta> findAllByUsuarioIdAndActiveTrue(Long usuarioId);
+    Optional<Cuenta> findByIdAndUsuarioIdAndActiveTrue(Long id, Long usuarioId);
+    long countByUsuarioIdAndActiveTrue(Long usuarioId);
 }

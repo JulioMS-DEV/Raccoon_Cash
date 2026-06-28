@@ -8,6 +8,6 @@ import java.util.Optional;
 
 @Repository
 public interface LimiteCategoriaPresupuestoRepositorio extends JpaRepository<LimiteCategoriaPresupuesto, Long> {
-    List<LimiteCategoriaPresupuesto> findAllByBudgetId(Long budgetId);
-    Optional<LimiteCategoriaPresupuesto> findByIdAndBudgetId(Long id, Long budgetId);
+    List<LimiteCategoriaPresupuesto> findAllByBudget_IdAndBudget_Usuario_Id(Long budgetId, Long usuarioId);
+    Optional<LimiteCategoriaPresupuesto> findByIdAndBudget_IdAndBudget_Usuario_Id(Long id, Long budgetId, Long usuarioId);
 }

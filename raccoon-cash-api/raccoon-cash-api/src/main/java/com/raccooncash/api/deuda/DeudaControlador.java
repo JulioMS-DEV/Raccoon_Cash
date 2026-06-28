@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,6 +29,7 @@ public class DeudaControlador {
 
     @GetMapping
     public ResponseEntity<List<DeudaRespuesta>> getAllDebts(
+            @RequestHeader("X-Usuario-Id") Long usuarioId,
             @RequestParam(required = false) TipoDeuda type,
             @RequestParam(required = false) EstadoDeuda status,
             @RequestParam(required = false) Long accountId,
@@ -35,48 +37,58 @@ public class DeudaControlador {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueTo,
             @RequestParam(required = false) Boolean overdue,
             @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(debtService.getAllDebts(type, status, accountId, dueFrom, dueTo, overdue, search));
+        return ResponseEntity.ok(debtService.getAllDebts(usuarioId, type, status, accountId, dueFrom, dueTo, overdue, search));
     }
 
     @GetMapping("/reminders")
-    public ResponseEntity<List<DeudaRespuesta>> getPendingReminders() {
-        return ResponseEntity.ok(debtService.getPendingReminders());
+    public ResponseEntity<List<DeudaRespuesta>> getPendingReminders(@RequestHeader("X-Usuario-Id") Long usuarioId) {
+        return ResponseEntity.ok(debtService.getPendingReminders(usuarioId));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<DeudaRespuesta> getDebtById(@PathVariable Long id) {
-        return ResponseEntity.ok(debtService.getDebtById(id));
+    public ResponseEntity<DeudaRespuesta> getDebtById(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                      @PathVariable Long id) {
+        return ResponseEntity.ok(debtService.getDebtById(usuarioId, id));
     }
 
     @PostMapping
-    public ResponseEntity<DeudaRespuesta> createDebt(@Valid @RequestBody DeudaSolicitud request) {
-        return ResponseEntity.ok(debtService.createDebt(request));
+    public ResponseEntity<DeudaRespuesta> createDebt(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                     @Valid @RequestBody DeudaSolicitud request) {
+        return ResponseEntity.ok(debtService.createDebt(usuarioId, request));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<DeudaRespuesta> updateDebt(@PathVariable Long id, @Valid @RequestBody DeudaSolicitud request) {
-        return ResponseEntity.ok(debtService.updateDebt(id, request));
+    public ResponseEntity<DeudaRespuesta> updateDebt(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                     @PathVariable Long id,
+                                                     @Valid @RequestBody DeudaSolicitud request) {
+        return ResponseEntity.ok(debtService.updateDebt(usuarioId, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDebt(@PathVariable Long id) {
-        debtService.deleteDebt(id);
+    public ResponseEntity<Void> deleteDebt(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                           @PathVariable Long id) {
+        debtService.deleteDebt(usuarioId, id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/payments")
-    public ResponseEntity<PagoDeudaRespuesta> addPayment(@PathVariable Long id, @Valid @RequestBody PagoDeudaSolicitud request) {
-        return ResponseEntity.ok(debtService.addPayment(id, request));
+    public ResponseEntity<PagoDeudaRespuesta> addPayment(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                         @PathVariable Long id,
+                                                         @Valid @RequestBody PagoDeudaSolicitud request) {
+        return ResponseEntity.ok(debtService.addPayment(usuarioId, id, request));
     }
 
     @GetMapping("/{id}/payments")
-    public ResponseEntity<List<PagoDeudaRespuesta>> getPayments(@PathVariable Long id) {
-        return ResponseEntity.ok(debtService.getPayments(id));
+    public ResponseEntity<List<PagoDeudaRespuesta>> getPayments(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                                @PathVariable Long id) {
+        return ResponseEntity.ok(debtService.getPayments(usuarioId, id));
     }
 
     @DeleteMapping("/{id}/payments/{paymentId}")
-    public ResponseEntity<Void> deletePayment(@PathVariable Long id, @PathVariable Long paymentId) {
-        debtService.deletePayment(id, paymentId);
+    public ResponseEntity<Void> deletePayment(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                              @PathVariable Long id,
+                                              @PathVariable Long paymentId) {
+        debtService.deletePayment(usuarioId, id, paymentId);
         return ResponseEntity.noContent().build();
     }
 }

@@ -37,20 +37,20 @@ public class PanelServicio {
     }
 
     @Transactional(readOnly = true)
-    public ResumenPanelRespuesta getSummary() {
+    public ResumenPanelRespuesta getSummary(Long usuarioId) {
         LocalDate today = LocalDate.now();
         LocalDate startOfMonth = today.withDayOfMonth(1);
         LocalDate endOfMonth = today.withDayOfMonth(today.lengthOfMonth());
 
-        BigDecimal totalBalance = accountRepository.findAllByActiveTrue()
+        BigDecimal totalBalance = accountRepository.findAllByUsuarioIdAndActiveTrue(usuarioId)
                 .stream()
                 .map(this::currentBalance)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal income = sumTransactions(TipoTransaccion.INCOME, startOfMonth, endOfMonth);
-        BigDecimal expense = sumTransactions(TipoTransaccion.EXPENSE, startOfMonth, endOfMonth);
+        BigDecimal income = sumTransactions(usuarioId, TipoTransaccion.INCOME, startOfMonth, endOfMonth);
+        BigDecimal expense = sumTransactions(usuarioId, TipoTransaccion.EXPENSE, startOfMonth, endOfMonth);
 
-        List<Deuda> debts = debtRepository.findAllByActiveTrue();
+        List<Deuda> debts = debtRepository.findAllByUsuarioIdAndActiveTrue(usuarioId);
         BigDecimal debtsIOwe = sumDebts(debts, TipoDeuda.I_OWE);
         BigDecimal debtsOwedToMe = sumDebts(debts, TipoDeuda.OWED_TO_ME);
 
@@ -61,13 +61,13 @@ public class PanelServicio {
         response.setNetCashFlowThisMonth(income.subtract(expense));
         response.setTotalDebtsIOwe(debtsIOwe);
         response.setTotalDebtsOwedToMe(debtsOwedToMe);
-        response.setNumberOfAccounts(accountRepository.countByActiveTrue());
-        response.setNumberOfActiveBudgets(budgetRepository.countByActiveTrue());
+        response.setNumberOfAccounts(accountRepository.countByUsuarioIdAndActiveTrue(usuarioId));
+        response.setNumberOfActiveBudgets(budgetRepository.countByUsuarioIdAndActiveTrue(usuarioId));
         return response;
     }
 
-    private BigDecimal sumTransactions(TipoTransaccion type, LocalDate from, LocalDate to) {
-        return transactionRepository.findWithFilters(null, null, type, from.atStartOfDay(), to.atTime(LocalTime.MAX))
+    private BigDecimal sumTransactions(Long usuarioId, TipoTransaccion type, LocalDate from, LocalDate to) {
+        return transactionRepository.findWithFilters(usuarioId, null, null, type, from.atStartOfDay(), to.atTime(LocalTime.MAX))
                 .stream()
                 .map(Transaccion::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

@@ -4,6 +4,8 @@ import com.raccooncash.api.excepcion.SolicitudIncorrectaException;
 import com.raccooncash.api.excepcion.RecursoNoEncontradoException;
 import com.raccooncash.api.transaccion.Transaccion;
 import com.raccooncash.api.transaccion.TransaccionRepositorio;
+import com.raccooncash.api.usuario.Usuario;
+import com.raccooncash.api.usuario.UsuarioServicio;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,60 +20,65 @@ public class PresupuestoServicio {
 
     private final PresupuestoRepositorio budgetRepository;
     private final TransaccionRepositorio transactionRepository;
+    private final UsuarioServicio usuarioServicio;
 
     public PresupuestoServicio(PresupuestoRepositorio budgetRepository,
-                               TransaccionRepositorio transactionRepository) {
+                               TransaccionRepositorio transactionRepository,
+                               UsuarioServicio usuarioServicio) {
         this.budgetRepository = budgetRepository;
         this.transactionRepository = transactionRepository;
+        this.usuarioServicio = usuarioServicio;
     }
 
     @Transactional(readOnly = true)
-    public List<PresupuestoRespuesta> getAllBudgets() {
-        return budgetRepository.findAllByActiveTrueOrderByStartDateDesc()
+    public List<PresupuestoRespuesta> getAllBudgets(Long usuarioId) {
+        return budgetRepository.findAllByUsuarioIdAndActiveTrueOrderByStartDateDesc(usuarioId)
                 .stream()
-                .map(this::toResponse)
+                .map(budget -> toResponse(budget, usuarioId))
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public PresupuestoRespuesta getBudgetById(Long id) {
-        return toResponse(findActiveBudget(id));
+    public PresupuestoRespuesta getBudgetById(Long usuarioId, Long id) {
+        return toResponse(findActiveBudget(usuarioId, id), usuarioId);
     }
 
     @Transactional
-    public PresupuestoRespuesta createBudget(PresupuestoSolicitud request) {
+    public PresupuestoRespuesta createBudget(Long usuarioId, PresupuestoSolicitud request) {
         validateRequest(request);
+        Usuario usuario = usuarioServicio.obtenerUsuario(usuarioId);
 
         Presupuesto budget = new Presupuesto();
+        budget.setUsuario(usuario);
         fillBudget(budget, request);
         budget.setActive(true);
 
         Presupuesto savedBudget = budgetRepository.save(budget);
-        return toResponse(savedBudget);
+        return toResponse(savedBudget, usuarioId);
     }
 
     @Transactional
-    public PresupuestoRespuesta updateBudget(Long id, PresupuestoSolicitud request) {
+    public PresupuestoRespuesta updateBudget(Long usuarioId, Long id, PresupuestoSolicitud request) {
         validateRequest(request);
 
-        Presupuesto budget = findActiveBudget(id);
+        Presupuesto budget = findActiveBudget(usuarioId, id);
         fillBudget(budget, request);
 
         Presupuesto updatedBudget = budgetRepository.save(budget);
-        return toResponse(updatedBudget);
+        return toResponse(updatedBudget, usuarioId);
     }
 
     @Transactional
-    public void deleteBudget(Long id) {
-        Presupuesto budget = findActiveBudget(id);
+    public void deleteBudget(Long usuarioId, Long id) {
+        Presupuesto budget = findActiveBudget(usuarioId, id);
         budget.setActive(false);
         budgetRepository.save(budget);
     }
 
     @Transactional(readOnly = true)
-    public ResumenPresupuestoRespuesta getBudgetSummary(Long id) {
-        Presupuesto budget = findActiveBudget(id);
-        BigDecimal spent = calculateCurrentAmount(budget);
+    public ResumenPresupuestoRespuesta getBudgetSummary(Long usuarioId, Long id) {
+        Presupuesto budget = findActiveBudget(usuarioId, id);
+        BigDecimal spent = calculateCurrentAmount(budget, usuarioId);
 
         BigDecimal remaining = budget.getAmountLimit().subtract(spent);
         BigDecimal percentageUsed = spent
@@ -129,18 +136,18 @@ public class PresupuestoServicio {
         };
     }
 
-    private PresupuestoRespuesta toResponse(Presupuesto budget) {
-        return new PresupuestoRespuesta(budget, calculateCurrentAmount(budget));
+    private PresupuestoRespuesta toResponse(Presupuesto budget, Long usuarioId) {
+        return new PresupuestoRespuesta(budget, calculateCurrentAmount(budget, usuarioId));
     }
 
-    private BigDecimal calculateCurrentAmount(Presupuesto budget) {
-        return transactionRepository.findByBudgetAndActive(budget).stream()
+    private BigDecimal calculateCurrentAmount(Presupuesto budget, Long usuarioId) {
+        return transactionRepository.findByBudgetAndUsuarioIdAndActive(budget, usuarioId).stream()
                 .map(Transaccion::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    Presupuesto findActiveBudget(Long id) {
-        return budgetRepository.findByIdAndActiveTrue(id)
+    Presupuesto findActiveBudget(Long usuarioId, Long id) {
+        return budgetRepository.findByIdAndUsuarioIdAndActiveTrue(id, usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Presupuesto no encontrado"));
     }
 }

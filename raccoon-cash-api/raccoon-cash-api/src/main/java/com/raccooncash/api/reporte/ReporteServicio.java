@@ -27,7 +27,7 @@ public class ReporteServicio {
     }
 
     @Transactional(readOnly = true)
-    public ReporteMensualRespuesta getMonthlyReport(int year, int month) {
+    public ReporteMensualRespuesta getMonthlyReport(Long usuarioId, int year, int month) {
         if (month < 1 || month > 12) {
             throw new SolicitudIncorrectaException("El mes debe estar entre 1 y 12");
         }
@@ -36,17 +36,18 @@ public class ReporteServicio {
         LocalDate from = yearMonth.atDay(1);
         LocalDate to = yearMonth.atEndOfMonth();
 
-        BigDecimal income = sumByType(TipoTransaccion.INCOME, from, to);
-        BigDecimal expense = sumByType(TipoTransaccion.EXPENSE, from, to);
+        BigDecimal income = sumByType(usuarioId, TipoTransaccion.INCOME, from, to);
+        BigDecimal expense = sumByType(usuarioId, TipoTransaccion.EXPENSE, from, to);
 
         return new ReporteMensualRespuesta(year, month, income, expense);
     }
 
     @Transactional(readOnly = true)
-    public List<ReporteCategoriaRespuesta> getByCategory(LocalDate from, LocalDate to) {
+    public List<ReporteCategoriaRespuesta> getByCategory(Long usuarioId, LocalDate from, LocalDate to) {
         validateDateRange(from, to);
 
         List<Transaccion> expenses = transactionRepository.findWithFilters(
+                usuarioId,
                 null,
                 null,
                 TipoTransaccion.EXPENSE,
@@ -66,10 +67,11 @@ public class ReporteServicio {
     }
 
     @Transactional(readOnly = true)
-    public List<ReporteCuentaRespuesta> getByAccount(LocalDate from, LocalDate to) {
+    public List<ReporteCuentaRespuesta> getByAccount(Long usuarioId, LocalDate from, LocalDate to) {
         validateDateRange(from, to);
 
         List<Transaccion> transactions = transactionRepository.findWithFilters(
+                usuarioId,
                 null,
                 null,
                 null,
@@ -99,11 +101,11 @@ public class ReporteServicio {
     }
 
     @Transactional(readOnly = true)
-    public ReporteFlujoCajaRespuesta getCashFlow(LocalDate from, LocalDate to) {
+    public ReporteFlujoCajaRespuesta getCashFlow(Long usuarioId, LocalDate from, LocalDate to) {
         validateDateRange(from, to);
 
-        BigDecimal income = sumByType(TipoTransaccion.INCOME, from, to);
-        BigDecimal expense = sumByType(TipoTransaccion.EXPENSE, from, to);
+        BigDecimal income = sumByType(usuarioId, TipoTransaccion.INCOME, from, to);
+        BigDecimal expense = sumByType(usuarioId, TipoTransaccion.EXPENSE, from, to);
         return new ReporteFlujoCajaRespuesta(from, to, income, expense);
     }
 
@@ -111,8 +113,8 @@ public class ReporteServicio {
         return reportMap.computeIfAbsent(accountId, id -> new ReporteCuentaRespuesta(accountId, accountName));
     }
 
-    private BigDecimal sumByType(TipoTransaccion type, LocalDate from, LocalDate to) {
-        return transactionRepository.findWithFilters(null, null, type, startOfDay(from), endOfDay(to))
+    private BigDecimal sumByType(Long usuarioId, TipoTransaccion type, LocalDate from, LocalDate to) {
+        return transactionRepository.findWithFilters(usuarioId, null, null, type, startOfDay(from), endOfDay(to))
                 .stream()
                 .map(Transaccion::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

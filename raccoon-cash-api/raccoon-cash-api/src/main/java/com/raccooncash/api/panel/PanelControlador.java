@@ -2,6 +2,7 @@ package com.raccooncash.api.panel;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,7 +17,7 @@ public class PanelControlador {
     }
 
     @GetMapping("/summary")
-    public ResponseEntity<ResumenPanelRespuesta> getSummary() {
-        return ResponseEntity.ok(dashboardService.getSummary());
+    public ResponseEntity<ResumenPanelRespuesta> getSummary(@RequestHeader("X-Usuario-Id") Long usuarioId) {
+        return ResponseEntity.ok(dashboardService.getSummary(usuarioId));
     }
 }

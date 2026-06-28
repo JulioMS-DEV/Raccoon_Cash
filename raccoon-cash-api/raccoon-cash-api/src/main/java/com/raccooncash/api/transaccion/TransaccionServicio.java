@@ -14,6 +14,8 @@ import com.raccooncash.api.presupuesto.Presupuesto;
 import com.raccooncash.api.presupuesto.PresupuestoRepositorio;
 import com.raccooncash.api.savinggoal.SavingGoal;
 import com.raccooncash.api.savinggoal.SavingGoalRepository;
+import com.raccooncash.api.usuario.Usuario;
+import com.raccooncash.api.usuario.UsuarioServicio;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,43 +35,49 @@ public class TransaccionServicio {
     private final CategoriaRepositorio categoryRepository;
     private final SavingGoalRepository savingGoalRepository;
     private final PresupuestoRepositorio budgetRepository;
+    private final UsuarioServicio usuarioServicio;
 
     public TransaccionServicio(TransaccionRepositorio transactionRepository,
                                CuentaRepositorio accountRepository,
                                CategoriaRepositorio categoryRepository,
                                SavingGoalRepository savingGoalRepository,
-                               PresupuestoRepositorio budgetRepository) {
+                               PresupuestoRepositorio budgetRepository,
+                               UsuarioServicio usuarioServicio) {
         this.transactionRepository = transactionRepository;
         this.accountRepository = accountRepository;
         this.categoryRepository = categoryRepository;
         this.savingGoalRepository = savingGoalRepository;
         this.budgetRepository = budgetRepository;
+        this.usuarioServicio = usuarioServicio;
     }
 
     @Transactional(readOnly = true)
-    public List<TransaccionRespuesta> getTransactions(Long accountId,
-                                                     Long categoryId,
-                                                     TipoTransaccion type,
-                                                     LocalDate from,
-                                                     LocalDate to) {
+    public List<TransaccionRespuesta> getTransactions(Long usuarioId,
+                                                      Long accountId,
+                                                      Long categoryId,
+                                                      TipoTransaccion type,
+                                                      LocalDate from,
+                                                      LocalDate to) {
         LocalDateTime fromDate = from != null ? from.atStartOfDay() : null;
         LocalDateTime toDate = to != null ? to.atTime(LocalTime.MAX) : null;
 
-        return transactionRepository.findWithFilters(accountId, categoryId, type, fromDate, toDate)
+        return transactionRepository.findWithFilters(usuarioId, accountId, categoryId, type, fromDate, toDate)
                 .stream()
                 .map(TransaccionRespuesta::new)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public TransaccionRespuesta getTransactionById(Long id) {
-        Transaccion transaction = findActiveTransaction(id);
+    public TransaccionRespuesta getTransactionById(Long usuarioId, Long id) {
+        Transaccion transaction = findActiveTransaction(usuarioId, id);
         return new TransaccionRespuesta(transaction);
     }
 
     @Transactional
-    public TransaccionRespuesta createTransaction(TransaccionSolicitud request) {
-        Transaccion transaction = buildTransactionFromRequest(new Transaccion(), request);
+    public TransaccionRespuesta createTransaction(Long usuarioId, TransaccionSolicitud request) {
+        Usuario usuario = usuarioServicio.obtenerUsuario(usuarioId);
+        Transaccion transaction = buildTransactionFromRequest(new Transaccion(), request, usuarioId);
+        transaction.setUsuario(usuario);
         applyTransactionEffect(transaction);
 
         saveAccountsFor(transaction);
@@ -78,8 +86,8 @@ public class TransaccionServicio {
     }
 
     @Transactional
-    public TransaccionRespuesta updateTransaction(Long id, TransaccionSolicitud request) {
-        Transaccion transaction = findActiveTransaction(id);
+    public TransaccionRespuesta updateTransaction(Long usuarioId, Long id, TransaccionSolicitud request) {
+        Transaccion transaction = findActiveTransaction(usuarioId, id);
         boolean initialDebtTransaction = isInitialDebtTransaction(transaction);
         ensureTransactionCanBeManagedDirectly(transaction);
         if (initialDebtTransaction) {
@@ -89,7 +97,7 @@ public class TransaccionServicio {
         revertTransactionEffect(transaction);
         saveAccountsFor(transaction);
 
-        buildTransactionFromRequest(transaction, request);
+        buildTransactionFromRequest(transaction, request, usuarioId);
         applyTransactionEffect(transaction);
         saveAccountsFor(transaction);
         if (initialDebtTransaction) {
@@ -101,8 +109,8 @@ public class TransaccionServicio {
     }
 
     @Transactional
-    public void deleteTransaction(Long id) {
-        Transaccion transaction = findActiveTransaction(id);
+    public void deleteTransaction(Long usuarioId, Long id) {
+        Transaccion transaction = findActiveTransaction(usuarioId, id);
         if (isInitialDebtTransaction(transaction)) {
             ensureInitialDebtTransactionCanBeDeleted(transaction);
             revertTransactionEffect(transaction);
@@ -203,22 +211,22 @@ public class TransaccionServicio {
         debt.setStatus(EstadoDeuda.PENDING);
     }
 
-    private Transaccion buildTransactionFromRequest(Transaccion transaction, TransaccionSolicitud request) {
+    private Transaccion buildTransactionFromRequest(Transaccion transaction, TransaccionSolicitud request, Long usuarioId) {
         validateRequestBasics(request);
 
-        Cuenta account = findActiveAccount(request.getAccountId(), "Cuenta no encontrada");
+        Cuenta account = findActiveAccount(usuarioId, request.getAccountId(), "Cuenta no encontrada");
         Categoria category = null;
         Cuenta destinationAccount = null;
         SavingGoal savingGoal = null;
         Presupuesto budget = null;
 
         if (request.getBudgetId() != null) {
-            budget = budgetRepository.findByIdAndActiveTrue(request.getBudgetId())
+            budget = budgetRepository.findByIdAndUsuarioIdAndActiveTrue(request.getBudgetId(), usuarioId)
                     .orElseThrow(() -> new RecursoNoEncontradoException("Presupuesto no encontrado"));
         }
 
         if (request.getSavingGoalId() != null) {
-            savingGoal = savingGoalRepository.findById(request.getSavingGoalId())
+            savingGoal = savingGoalRepository.findByIdAndUsuarioId(request.getSavingGoalId(), usuarioId)
                     .orElseThrow(() -> new RecursoNoEncontradoException("SavingGoal no encontrada"));
         } else if (request.getType() == TipoTransaccion.INCOME || request.getType() == TipoTransaccion.EXPENSE) {
             if (request.getCategoryId() == null) {
@@ -236,7 +244,7 @@ public class TransaccionServicio {
             if (request.getAccountId().equals(destinationAccountId)) {
                 throw new SolicitudIncorrectaException("La cuenta origen y destino no pueden ser la misma");
             }
-            destinationAccount = findActiveAccount(destinationAccountId, "Cuenta destino no encontrada");
+            destinationAccount = findActiveAccount(usuarioId, destinationAccountId, "Cuenta destino no encontrada");
         }
 
         transaction.setDescription(request.getDescription());
@@ -346,13 +354,13 @@ public class TransaccionServicio {
         }
     }
 
-    private Transaccion findActiveTransaction(Long id) {
-        return transactionRepository.findActiveById(id)
+    private Transaccion findActiveTransaction(Long usuarioId, Long id) {
+        return transactionRepository.findActiveById(id, usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Transaccion no encontrada"));
     }
 
-    private Cuenta findActiveAccount(Long id, String message) {
-        return accountRepository.findByIdAndActiveTrue(id)
+    private Cuenta findActiveAccount(Long usuarioId, Long id, String message) {
+        return accountRepository.findByIdAndUsuarioIdAndActiveTrue(id, usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException(message));
     }
 
@@ -362,21 +370,21 @@ public class TransaccionServicio {
     }
 
     @Transactional(readOnly = true)
-    public List<TransaccionRespuesta> getTransactionsBySavingGoalId(Long savingGoalId) {
-        SavingGoal savingGoal = savingGoalRepository.findById(savingGoalId)
+    public List<TransaccionRespuesta> getTransactionsBySavingGoalId(Long usuarioId, Long savingGoalId) {
+        SavingGoal savingGoal = savingGoalRepository.findByIdAndUsuarioId(savingGoalId, usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("SavingGoal no encontrada"));
 
-        return transactionRepository.findBySavingGoalAndActiveTrue(savingGoal).stream()
+        return transactionRepository.findBySavingGoalAndUsuarioIdAndActiveTrue(savingGoal, usuarioId).stream()
                 .map(TransaccionRespuesta::new)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<TransaccionRespuesta> getTransactionsByBudgetId(Long budgetId) {
-        Presupuesto budget = budgetRepository.findByIdAndActiveTrue(budgetId)
+    public List<TransaccionRespuesta> getTransactionsByBudgetId(Long usuarioId, Long budgetId) {
+        Presupuesto budget = budgetRepository.findByIdAndUsuarioIdAndActiveTrue(budgetId, usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Presupuesto no encontrado"));
 
-        return transactionRepository.findByBudgetAndActive(budget).stream()
+        return transactionRepository.findByBudgetAndUsuarioIdAndActive(budget, usuarioId).stream()
                 .map(TransaccionRespuesta::new)
                 .collect(Collectors.toList());
     }

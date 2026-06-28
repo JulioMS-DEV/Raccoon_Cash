@@ -13,7 +13,8 @@ public class TransaccionRepositorioImpl implements TransaccionRepositorioPersona
     private EntityManager entityManager;
 
     @Override
-    public List<Transaccion> findWithFilters(Long accountId,
+    public List<Transaccion> findWithFilters(Long usuarioId,
+                                             Long accountId,
                                              Long categoryId,
                                              TipoTransaccion type,
                                              LocalDateTime fromDate,
@@ -23,7 +24,8 @@ public class TransaccionRepositorioImpl implements TransaccionRepositorioPersona
                 JOIN FETCH t.account account
                 LEFT JOIN FETCH t.toAccount destination
                 LEFT JOIN FETCH t.category category
-                WHERE (t.active = true OR t.active IS NULL)
+                WHERE t.usuario.id = :usuarioId
+                  AND (t.active = true OR t.active IS NULL)
                 """);
 
         if (accountId != null) {
@@ -45,6 +47,7 @@ public class TransaccionRepositorioImpl implements TransaccionRepositorioPersona
         jpql.append(" ORDER BY t.date DESC");
 
         TypedQuery<Transaccion> query = entityManager.createQuery(jpql.toString(), Transaccion.class);
+        query.setParameter("usuarioId", usuarioId);
         if (accountId != null) {
             query.setParameter("accountId", accountId);
         }

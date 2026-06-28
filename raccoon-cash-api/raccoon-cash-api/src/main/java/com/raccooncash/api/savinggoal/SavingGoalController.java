@@ -19,26 +19,30 @@ public class SavingGoalController {
     private TransaccionServicio transaccionServicio;
 
     @GetMapping
-    public List<SavingGoalResponse> getAllSavingGoals() {
-        return savingGoalService.getAllSavingGoals();
+    public List<SavingGoalResponse> getAllSavingGoals(@RequestHeader("X-Usuario-Id") Long usuarioId) {
+        return savingGoalService.getAllSavingGoals(usuarioId);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SavingGoalResponse> getSavingGoalById(@PathVariable Long id) {
-        return savingGoalService.getSavingGoalById(id)
+    public ResponseEntity<SavingGoalResponse> getSavingGoalById(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                                @PathVariable Long id) {
+        return savingGoalService.getSavingGoalById(usuarioId, id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
-    public SavingGoal createSavingGoal(@RequestBody SavingGoal savingGoal) {
-        return savingGoalService.createSavingGoal(savingGoal);
+    public SavingGoal createSavingGoal(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                       @RequestBody SavingGoal savingGoal) {
+        return savingGoalService.createSavingGoal(usuarioId, savingGoal);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<SavingGoal> updateSavingGoal(@PathVariable Long id, @RequestBody SavingGoal savingGoalDetails) {
+    public ResponseEntity<SavingGoal> updateSavingGoal(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                       @PathVariable Long id,
+                                                       @RequestBody SavingGoal savingGoalDetails) {
         try {
-            SavingGoal updatedSavingGoal = savingGoalService.updateSavingGoal(id, savingGoalDetails);
+            SavingGoal updatedSavingGoal = savingGoalService.updateSavingGoal(usuarioId, id, savingGoalDetails);
             return ResponseEntity.ok(updatedSavingGoal);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
@@ -46,14 +50,16 @@ public class SavingGoalController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteSavingGoal(@PathVariable Long id) {
-        savingGoalService.deleteSavingGoal(id);
+    public ResponseEntity<Void> deleteSavingGoal(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                 @PathVariable Long id) {
+        savingGoalService.deleteSavingGoal(usuarioId, id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/transactions")
-    public ResponseEntity<List<TransaccionRespuesta>> getTransactionsBySavingGoalId(@PathVariable Long id) {
-        List<TransaccionRespuesta> transactions = transaccionServicio.getTransactionsBySavingGoalId(id);
+    public ResponseEntity<List<TransaccionRespuesta>> getTransactionsBySavingGoalId(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                                                    @PathVariable Long id) {
+        List<TransaccionRespuesta> transactions = transaccionServicio.getTransactionsBySavingGoalId(usuarioId, id);
         return ResponseEntity.ok(transactions);
     }
 }

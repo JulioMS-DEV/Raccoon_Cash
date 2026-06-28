@@ -4,7 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface TransaccionRepositorioPersonalizado {
-    List<Transaccion> findWithFilters(Long accountId,
+    List<Transaccion> findWithFilters(Long usuarioId,
+                                      Long accountId,
                                       Long categoryId,
                                       TipoTransaccion type,
                                       LocalDateTime fromDate,

@@ -2,6 +2,8 @@ package com.raccooncash.api.savinggoal;
 
 import com.raccooncash.api.transaccion.Transaccion;
 import com.raccooncash.api.transaccion.TransaccionRepositorio;
+import com.raccooncash.api.usuario.Usuario;
+import com.raccooncash.api.usuario.UsuarioServicio;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,24 +21,29 @@ public class SavingGoalService {
     @Autowired
     private TransaccionRepositorio transaccionRepositorio;
 
-    public List<SavingGoalResponse> getAllSavingGoals() {
-        return savingGoalRepository.findAll().stream()
-                .map(this::convertToDto)
+    @Autowired
+    private UsuarioServicio usuarioServicio;
+
+    public List<SavingGoalResponse> getAllSavingGoals(Long usuarioId) {
+        return savingGoalRepository.findAllByUsuarioId(usuarioId).stream()
+                .map(savingGoal -> convertToDto(savingGoal, usuarioId))
                 .collect(Collectors.toList());
     }
 
-    public Optional<SavingGoalResponse> getSavingGoalById(Long id) {
-        return savingGoalRepository.findById(id)
-                .map(this::convertToDto);
+    public Optional<SavingGoalResponse> getSavingGoalById(Long usuarioId, Long id) {
+        return savingGoalRepository.findByIdAndUsuarioId(id, usuarioId)
+                .map(savingGoal -> convertToDto(savingGoal, usuarioId));
     }
 
-    public SavingGoal createSavingGoal(SavingGoal savingGoal) {
+    public SavingGoal createSavingGoal(Long usuarioId, SavingGoal savingGoal) {
+        Usuario usuario = usuarioServicio.obtenerUsuario(usuarioId);
+        savingGoal.setUsuario(usuario);
         return savingGoalRepository.save(savingGoal);
     }
 
     @Transactional
-    public SavingGoal updateSavingGoal(Long id, SavingGoal savingGoalDetails) {
-        SavingGoal savingGoal = savingGoalRepository.findById(id)
+    public SavingGoal updateSavingGoal(Long usuarioId, Long id, SavingGoal savingGoalDetails) {
+        SavingGoal savingGoal = savingGoalRepository.findByIdAndUsuarioId(id, usuarioId)
                 .orElseThrow(() -> new RuntimeException("SavingGoal not found with id " + id));
 
         savingGoal.setName(savingGoalDetails.getName());
@@ -49,12 +56,14 @@ public class SavingGoalService {
         return savingGoalRepository.save(savingGoal);
     }
 
-    public void deleteSavingGoal(Long id) {
-        savingGoalRepository.deleteById(id);
+    public void deleteSavingGoal(Long usuarioId, Long id) {
+        SavingGoal savingGoal = savingGoalRepository.findByIdAndUsuarioId(id, usuarioId)
+                .orElseThrow(() -> new RuntimeException("SavingGoal not found with id " + id));
+        savingGoalRepository.delete(savingGoal);
     }
 
-    private SavingGoalResponse convertToDto(SavingGoal savingGoal) {
-        List<Transaccion> activeTransactions = transaccionRepositorio.findBySavingGoalAndActiveTrue(savingGoal);
+    private SavingGoalResponse convertToDto(SavingGoal savingGoal, Long usuarioId) {
+        List<Transaccion> activeTransactions = transaccionRepositorio.findBySavingGoalAndUsuarioIdAndActiveTrue(savingGoal, usuarioId);
 
         Double currentAmount = activeTransactions.stream()
                 .mapToDouble(transaccion -> transaccion.getAmount().doubleValue())

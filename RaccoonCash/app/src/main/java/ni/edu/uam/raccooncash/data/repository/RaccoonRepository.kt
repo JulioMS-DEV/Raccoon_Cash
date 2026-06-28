@@ -8,6 +8,10 @@ import retrofit2.Response
 class RaccoonRepository {
     private val apiService = RetrofitClient.apiService
 
+    suspend fun registrarUsuario(request: RegistroSolicitud) = apiService.registrarUsuario(request)
+
+    suspend fun loginUsuario(request: LoginSolicitud) = apiService.loginUsuario(request)
+
     suspend fun getAccounts() = apiService.getAccounts()
 
     suspend fun createAccount(request: AccountRequest) = apiService.createAccount(request)
