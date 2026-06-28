@@ -263,6 +263,9 @@ class MainActivity : ComponentActivity() {
                             "add_debt" -> AddDebtScreen(
                                 viewModel = debtsViewModel,
                                 debtToEdit = editingDebt,
+                                onSaved = {
+                                    accountsViewModel.loadAccounts()
+                                },
                                 onBack = {
                                     currentScreen = if (editingDebt != null && selectedDebt?.id == editingDebt?.id) {
                                         "debt_details"

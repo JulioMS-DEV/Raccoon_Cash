@@ -17,6 +17,7 @@ public class TransaccionRespuesta {
     private String categoryName;
     private Long savingGoalId;
     private Long budgetId;
+    private Long debtId;
     private String notes;
     private Boolean active;
     private Boolean generatedByDebtPayment;
@@ -52,6 +53,9 @@ public class TransaccionRespuesta {
         }
         if (transaction.getBudget() != null) {
             this.budgetId = transaction.getBudget().getId();
+        }
+        if (transaction.getDebt() != null) {
+            this.debtId = transaction.getDebt().getId();
         }
     }
     public Long getId() {
@@ -143,6 +147,12 @@ public class TransaccionRespuesta {
     }
     public void setBudgetId(Long budgetId) {
         this.budgetId = budgetId;
+    }
+    public Long getDebtId() {
+        return debtId;
+    }
+    public void setDebtId(Long debtId) {
+        this.debtId = debtId;
     }
     public String getNotes() {
         return notes;
