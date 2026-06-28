@@ -1,6 +1,7 @@
 package com.raccooncash.api.transaccion;
 import com.raccooncash.api.cuenta.Cuenta;
 import com.raccooncash.api.categoria.Categoria;
+import com.raccooncash.api.deuda.Deuda;
 import com.raccooncash.api.presupuesto.Presupuesto;
 import com.raccooncash.api.savinggoal.SavingGoal;
 import jakarta.persistence.Column;
@@ -48,6 +49,9 @@ public class Transaccion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "budget_id")
     private Presupuesto budget;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "debt_id")
+    private Deuda debt;
     private String notes;
     private Boolean active = true;
     private Boolean generatedByDebtPayment = false;
@@ -130,6 +134,12 @@ public class Transaccion {
     }
     public void setBudget(Presupuesto budget) {
         this.budget = budget;
+    }
+    public Deuda getDebt() {
+        return debt;
+    }
+    public void setDebt(Deuda debt) {
+        this.debt = debt;
     }
     public String getNotes() {
         return notes;

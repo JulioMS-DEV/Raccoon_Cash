@@ -2,6 +2,8 @@ package ni.edu.uam.raccooncash.data.repository
 
 import ni.edu.uam.raccooncash.data.model.*
 import ni.edu.uam.raccooncash.data.remote.RetrofitClient
+import retrofit2.HttpException
+import retrofit2.Response
 
 class RaccoonRepository {
     private val apiService = RetrofitClient.apiService
@@ -12,7 +14,7 @@ class RaccoonRepository {
 
     suspend fun updateAccount(id: Long, request: AccountRequest) = apiService.updateAccount(id, request)
 
-    suspend fun deleteAccount(id: Long) = apiService.deleteAccount(id)
+    suspend fun deleteAccount(id: Long) = apiService.deleteAccount(id).ensureSuccessful()
 
     // Transactions
     suspend fun getTransactions() = apiService.getTransactions()
@@ -21,7 +23,7 @@ class RaccoonRepository {
 
     suspend fun updateTransaction(id: Long, request: TransactionRequest) = apiService.updateTransaction(id, request)
 
-    suspend fun deleteTransaction(id: Long) = apiService.deleteTransaction(id)
+    suspend fun deleteTransaction(id: Long) = apiService.deleteTransaction(id).ensureSuccessful()
 
     // Debts
     suspend fun getDebts(
@@ -40,13 +42,13 @@ class RaccoonRepository {
 
     suspend fun updateDebt(id: Long, request: DebtRequest) = apiService.updateDebt(id, request)
 
-    suspend fun deleteDebt(id: Long) = apiService.deleteDebt(id)
+    suspend fun deleteDebt(id: Long) = apiService.deleteDebt(id).ensureSuccessful()
 
     suspend fun getDebtPayments(id: Long) = apiService.getDebtPayments(id)
 
     suspend fun createDebtPayment(id: Long, request: DebtPaymentRequest) = apiService.createDebtPayment(id, request)
 
-    suspend fun deleteDebtPayment(id: Long, paymentId: Long) = apiService.deleteDebtPayment(id, paymentId)
+    suspend fun deleteDebtPayment(id: Long, paymentId: Long) = apiService.deleteDebtPayment(id, paymentId).ensureSuccessful()
 
     // Categories
     suspend fun getCategories() = apiService.getCategories()
@@ -55,7 +57,7 @@ class RaccoonRepository {
 
     suspend fun updateCategory(id: Long, request: ni.edu.uam.raccooncash.data.model.CategoryRequest) = apiService.updateCategory(id, request)
 
-    suspend fun deleteCategory(id: Long) = apiService.deleteCategory(id)
+    suspend fun deleteCategory(id: Long) = apiService.deleteCategory(id).ensureSuccessful()
 
     // Saving Goals
     suspend fun getSavingGoals() = apiService.getSavingGoals()
@@ -64,7 +66,7 @@ class RaccoonRepository {
 
     suspend fun updateSavingGoal(id: Long, request: SavingGoalRequest) = apiService.updateSavingGoal(id, request)
 
-    suspend fun deleteSavingGoal(id: Long) = apiService.deleteSavingGoal(id)
+    suspend fun deleteSavingGoal(id: Long) = apiService.deleteSavingGoal(id).ensureSuccessful()
 
     suspend fun getSavingGoalTransactions(id: Long) = apiService.getSavingGoalTransactions(id)
 
@@ -77,11 +79,17 @@ class RaccoonRepository {
 
     suspend fun updateBudgetCategoryLimit(budgetId: Long, limitId: Long, request: BudgetCategoryLimitRequest) = apiService.updateBudgetCategoryLimit(budgetId, limitId, request)
 
-    suspend fun deleteBudgetCategoryLimit(budgetId: Long, limitId: Long) = apiService.deleteBudgetCategoryLimit(budgetId, limitId)
+    suspend fun deleteBudgetCategoryLimit(budgetId: Long, limitId: Long) = apiService.deleteBudgetCategoryLimit(budgetId, limitId).ensureSuccessful()
 
     suspend fun createBudget(request: PresupuestoSolicitud) = apiService.createBudget(request)
 
     suspend fun updateBudget(id: Long, request: PresupuestoSolicitud) = apiService.updateBudget(id, request)
 
-    suspend fun deleteBudget(id: Long) = apiService.deleteBudget(id)
+    suspend fun deleteBudget(id: Long) = apiService.deleteBudget(id).ensureSuccessful()
+
+    private fun Response<Unit>.ensureSuccessful() {
+        if (!isSuccessful) {
+            throw HttpException(this)
+        }
+    }
 }

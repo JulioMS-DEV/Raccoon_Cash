@@ -161,6 +161,7 @@ class DebtsViewModel : ViewModel() {
                     repository.updateDebt(id, request)
                 }
                 _selectedDebt.value = savedDebt
+                _accounts.value = repository.getAccounts()
                 _operationSuccess.value = true
                 loadDebts()
                 onCompleted?.invoke()

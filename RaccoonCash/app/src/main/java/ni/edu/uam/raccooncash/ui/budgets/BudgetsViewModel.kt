@@ -166,14 +166,10 @@ class BudgetsViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val response = repository.deleteBudget(id)
-                if (response.isSuccessful) {
-                    _budgetCategoryLimitsByBudgetId.value = _budgetCategoryLimitsByBudgetId.value - id
-                    _operationSuccess.value = true
-                    loadBudgets()
-                } else {
-                    _error.value = "Error al eliminar: ${response.code()}"
-                }
+                repository.deleteBudget(id)
+                _budgetCategoryLimitsByBudgetId.value = _budgetCategoryLimitsByBudgetId.value - id
+                _operationSuccess.value = true
+                loadBudgets()
             } catch (e: Exception) {
                 _error.value = "Error al eliminar presupuesto: ${e.message}"
             } finally {

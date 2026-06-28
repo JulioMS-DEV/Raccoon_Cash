@@ -186,6 +186,7 @@ fun AddTransactionScreen(
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var initialParentIdForNewCategory by remember { mutableStateOf<Long?>(null) }
     var categoryToEdit by remember { mutableStateOf<CategoryResponse?>(null) }
+    var categorySortOption by remember { mutableStateOf(CategorySortOption.ALPHABETICAL) }
     val sheetState = rememberModalBottomSheetState()
 
     val tabs = listOf("Gasto", "Ingreso", "Transferir")
@@ -417,10 +418,13 @@ fun AddTransactionScreen(
         ) {
             var categorySearchQuery by remember { mutableStateOf("") }
             val categoryType = if (selectedTab == 0) "EXPENSE" else "INCOME"
-            val rootCategories = remember(categories, categoryType) {
-                categories.filter {
-                    it.type == categoryType && (it.parentCategoryId == null || it.parentCategoryId == 0L)
-                }
+            val movementCounts = remember(categoryTransactions, categories) {
+                buildCategoryMovementCounts(categories, categoryTransactions)
+            }
+            val rootCategories = remember(categories, categoryType, categorySortOption, movementCounts) {
+                categories
+                    .filter { it.type == categoryType && (it.parentCategoryId == null || it.parentCategoryId == 0L) }
+                    .let { sortCategoriesForDisplay(it, categorySortOption, movementCounts) }
             }
             val filteredCategories = remember(rootCategories, categorySearchQuery) {
                 val query = categorySearchQuery.trim()
@@ -431,11 +435,6 @@ fun AddTransactionScreen(
                 }
             }
             val selectedCategoryInSheet = categories.find { it.id == selectedCategoryId }
-            val movementCounts = remember(categoryTransactions, categories) {
-                categories.associate { category ->
-                    category.id to countCategoryMovements(category, categoryTransactions, categories)
-                }
-            }
 
             Column(
                 modifier = Modifier
@@ -466,7 +465,12 @@ fun AddTransactionScreen(
                     value = categorySearchQuery,
                     onValueChange = { categorySearchQuery = it }
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                CategorySortSelector(
+                    selectedOption = categorySortOption,
+                    onOptionSelected = { categorySortOption = it }
+                )
+                Spacer(modifier = Modifier.height(14.dp))
 
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 96.dp),
@@ -527,6 +531,8 @@ fun AddTransactionScreen(
             allCategories = categories,
             categoryTransactions = categoryTransactions,
             selectedCategoryId = selectedCategoryId,
+            sortOption = categorySortOption,
+            onSortOptionSelected = { categorySortOption = it },
             onDismiss = { showSubcategorySheet = false },
             onSubcategorySelected = { subcategoryId ->
                 selectedCategoryId = subcategoryId
@@ -961,33 +967,57 @@ private fun categoryAccentColor(category: CategoryResponse): Color {
     return parseTransactionColor(category.color) ?: TransactionPalette.Lavender
 }
 
-private fun countCategoryMovements(
-    category: CategoryResponse,
-    transactions: List<TransactionResponse>,
-    categories: List<CategoryResponse>
-): Int {
-    val relatedCategoryIds = categories
-        .filter { it.parentCategoryId == category.id }
-        .map { it.id }
-        .toMutableSet()
-        .apply { add(category.id) }
-
-    return transactions.count { transaction ->
-        if (transaction.type != category.type) return@count false
-
-        val transactionCategory = transaction.category
-        val transactionCategoryId = transaction.categoryId ?: transactionCategory?.id
-        when {
-            transactionCategoryId != null && transactionCategoryId in relatedCategoryIds -> true
-            transactionCategory?.parentCategoryId == category.id -> true
-            transactionCategoryId == null && transaction.categoryName?.equals(category.name, ignoreCase = true) == true -> true
-            else -> false
-        }
-    }
-}
-
 private fun movementCountLabel(count: Int): String {
     return if (count == 1) "1 mov." else "$count movs."
+}
+
+@Composable
+private fun CategorySortSelector(
+    selectedOption: CategorySortOption,
+    onOptionSelected: (CategorySortOption) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        CategorySortOption.entries.forEach { option ->
+            val selected = selectedOption == option
+            Surface(
+                onClick = { onOptionSelected(option) },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(999.dp),
+                color = if (selected) TransactionPalette.Lavender.copy(alpha = 0.18f) else TransactionPalette.ElevatedCard,
+                border = BorderStroke(
+                    width = if (selected) 2.dp else 1.dp,
+                    color = if (selected) TransactionPalette.Lavender else TransactionPalette.Border
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (selected) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = TransactionPalette.Lavender,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = option.label,
+                        color = TransactionPalette.TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -1713,18 +1743,18 @@ fun ParentCategoryPickerDialog(
         dragHandle = { CategorySheetHandle() }
     ) {
         var categorySearchQuery by remember { mutableStateOf("") }
-        val filteredCategories = remember(categories, categorySearchQuery) {
+        var categorySortOption by remember { mutableStateOf(CategorySortOption.ALPHABETICAL) }
+        val movementCounts = remember(categoryTransactions, allCategories) {
+            buildCategoryMovementCounts(allCategories, categoryTransactions)
+        }
+        val filteredCategories = remember(categories, categorySearchQuery, categorySortOption, movementCounts) {
             val query = categorySearchQuery.trim()
-            if (query.isBlank()) {
+            val searchedCategories = if (query.isBlank()) {
                 categories
             } else {
                 categories.filter { it.name.contains(query, ignoreCase = true) }
             }
-        }
-        val movementCounts = remember(categoryTransactions, allCategories) {
-            allCategories.associate { category ->
-                category.id to countCategoryMovements(category, categoryTransactions, allCategories)
-            }
+            sortCategoriesForDisplay(searchedCategories, categorySortOption, movementCounts)
         }
 
         Column(
@@ -1755,7 +1785,12 @@ fun ParentCategoryPickerDialog(
                 value = categorySearchQuery,
                 onValueChange = { categorySearchQuery = it }
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            CategorySortSelector(
+                selectedOption = categorySortOption,
+                onOptionSelected = { categorySortOption = it }
+            )
+            Spacer(modifier = Modifier.height(14.dp))
 
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 96.dp),
@@ -1793,6 +1828,8 @@ fun SubcategoryPickerSheet(
     allCategories: List<CategoryResponse>,
     categoryTransactions: List<TransactionResponse>,
     selectedCategoryId: Long?,
+    sortOption: CategorySortOption,
+    onSortOptionSelected: (CategorySortOption) -> Unit,
     onDismiss: () -> Unit,
     onSubcategorySelected: (Long) -> Unit,
     onAddSubcategory: () -> Unit,
@@ -1805,20 +1842,19 @@ fun SubcategoryPickerSheet(
         dragHandle = { CategorySheetHandle() }
     ) {
         var categorySearchQuery by remember { mutableStateOf("") }
-        val filteredSubcategories = remember(subcategories, categorySearchQuery) {
+        val movementCounts = remember(categoryTransactions, allCategories) {
+            buildCategoryMovementCounts(allCategories, categoryTransactions)
+        }
+        val filteredSubcategories = remember(subcategories, categorySearchQuery, sortOption, movementCounts) {
             val query = categorySearchQuery.trim()
-            if (query.isBlank()) {
+            val searchedSubcategories = if (query.isBlank()) {
                 subcategories
             } else {
                 subcategories.filter { it.name.contains(query, ignoreCase = true) }
             }
+            sortCategoriesForDisplay(searchedSubcategories, sortOption, movementCounts)
         }
         val showParentCategory = categorySearchQuery.isBlank() || parentCategory.name.contains(categorySearchQuery.trim(), ignoreCase = true)
-        val movementCounts = remember(categoryTransactions, allCategories) {
-            allCategories.associate { category ->
-                category.id to countCategoryMovements(category, categoryTransactions, allCategories)
-            }
-        }
 
         Column(
             modifier = Modifier
@@ -1876,7 +1912,13 @@ fun SubcategoryPickerSheet(
                 onValueChange = { categorySearchQuery = it }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            CategorySortSelector(
+                selectedOption = sortOption,
+                onOptionSelected = onSortOptionSelected
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 96.dp),
