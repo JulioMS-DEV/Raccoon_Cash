@@ -1,6 +1,7 @@
 package com.raccooncash.api;
 
 import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -10,6 +11,8 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.util.List;
 
@@ -35,8 +38,30 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 class AplicacionRaccoonCashApiTests {
 
+    private static final String USUARIO_HEADER = "X-Usuario-Id";
+    private static final long USUARIO_ID = 1L;
+
     @Autowired
     private MockMvc mockMvc;
+
+    @BeforeEach
+    void crearUsuarioPrueba() throws Exception {
+        mockMvc.perform(post("/api/auth/registro")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nombre": "Usuario Test",
+                                  "correo": "test@raccooncash.com",
+                                  "password": "123456"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(USUARIO_ID));
+    }
+
+    private ResultActions perform(MockHttpServletRequestBuilder requestBuilder) throws Exception {
+        return mockMvc.perform(requestBuilder.header(USUARIO_HEADER, USUARIO_ID));
+    }
 
     @Test
     void contextLoads() {
@@ -44,7 +69,7 @@ class AplicacionRaccoonCashApiTests {
 
     @Test
     void getTransactionsReturnsEmptyListWhenThereAreNoTransactions() throws Exception {
-        mockMvc.perform(get("/api/transactions"))
+        perform(get("/api/transactions"))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
     }
@@ -66,7 +91,7 @@ class AplicacionRaccoonCashApiTests {
                 }
                 """.formatted(accountId, categoryId);
 
-        mockMvc.perform(post("/api/transactions")
+        perform(post("/api/transactions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(transactionRequest))
                 .andExpect(status().isOk())
@@ -77,7 +102,7 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(jsonPath("$.categoryId").value(categoryId))
                 .andExpect(jsonPath("$.categoryName").value("Salario"));
 
-        mockMvc.perform(get("/api/transactions"))
+        perform(get("/api/transactions"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].account").doesNotExist())
                 .andExpect(jsonPath("$[0].category").doesNotExist())
@@ -92,7 +117,7 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long categoryId = createCategory("Salario", "INCOME");
 
-        MvcResult transactionResult = mockMvc.perform(post("/api/transactions")
+        MvcResult transactionResult = perform(post("/api/transactions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -109,14 +134,14 @@ class AplicacionRaccoonCashApiTests {
 
         Number transactionId = JsonPath.read(transactionResult.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5300));
 
-        mockMvc.perform(delete("/api/transactions/{id}", transactionId.longValue()))
+        perform(delete("/api/transactions/{id}", transactionId.longValue()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5000));
     }
@@ -126,7 +151,7 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long categoryId = createCategory("Comida", "EXPENSE");
 
-        MvcResult transactionResult = mockMvc.perform(post("/api/transactions")
+        MvcResult transactionResult = perform(post("/api/transactions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -143,14 +168,14 @@ class AplicacionRaccoonCashApiTests {
 
         Number transactionId = JsonPath.read(transactionResult.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(4750));
 
-        mockMvc.perform(delete("/api/transactions/{id}", transactionId.longValue()))
+        perform(delete("/api/transactions/{id}", transactionId.longValue()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5000));
     }
@@ -160,7 +185,7 @@ class AplicacionRaccoonCashApiTests {
         Long sourceAccountId = createAccount();
         Long destinationAccountId = createAccount("Banco", 2000);
 
-        MvcResult transactionResult = mockMvc.perform(post("/api/transactions")
+        MvcResult transactionResult = perform(post("/api/transactions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -177,20 +202,20 @@ class AplicacionRaccoonCashApiTests {
 
         Number transactionId = JsonPath.read(transactionResult.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(get("/api/accounts/{id}", sourceAccountId))
+        perform(get("/api/accounts/{id}", sourceAccountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(4250));
-        mockMvc.perform(get("/api/accounts/{id}", destinationAccountId))
+        perform(get("/api/accounts/{id}", destinationAccountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(2750));
 
-        mockMvc.perform(delete("/api/transactions/{id}", transactionId.longValue()))
+        perform(delete("/api/transactions/{id}", transactionId.longValue()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/accounts/{id}", sourceAccountId))
+        perform(get("/api/accounts/{id}", sourceAccountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5000));
-        mockMvc.perform(get("/api/accounts/{id}", destinationAccountId))
+        perform(get("/api/accounts/{id}", destinationAccountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(2000));
     }
@@ -199,7 +224,7 @@ class AplicacionRaccoonCashApiTests {
     void createAndUpdateCategoryPersistParentCategoryId() throws Exception {
         Long parentId = createCategory("Comida", "EXPENSE");
 
-        MvcResult childResult = mockMvc.perform(post("/api/categories")
+        MvcResult childResult = perform(post("/api/categories")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -217,7 +242,7 @@ class AplicacionRaccoonCashApiTests {
         Number childIdNumber = JsonPath.read(childResult.getResponse().getContentAsString(), "$.id");
         Long childId = childIdNumber.longValue();
 
-        MvcResult categoriesResult = mockMvc.perform(get("/api/categories"))
+        MvcResult categoriesResult = perform(get("/api/categories"))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -229,7 +254,7 @@ class AplicacionRaccoonCashApiTests {
 
         Long updatedParentId = createCategory("Servicios", "EXPENSE");
 
-        mockMvc.perform(put("/api/categories/{id}", childId)
+        perform(put("/api/categories/{id}", childId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -246,7 +271,7 @@ class AplicacionRaccoonCashApiTests {
 
     @Test
     void deleteBudgetThroughSpanishEndpointRemovesItFromActiveList() throws Exception {
-        MvcResult createdBudget = mockMvc.perform(post("/api/presupuestos")
+        MvcResult createdBudget = perform(post("/api/presupuestos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -269,7 +294,7 @@ class AplicacionRaccoonCashApiTests {
 
         Number budgetId = JsonPath.read(createdBudget.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(put("/api/presupuestos/{id}", budgetId.longValue())
+        perform(put("/api/presupuestos/{id}", budgetId.longValue())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -288,10 +313,10 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(jsonPath("$.tipoPeriodo").value("DIARIO"))
                 .andExpect(jsonPath("$.fechaFin").value("2026-06-23"));
 
-        mockMvc.perform(delete("/api/presupuestos/{id}", budgetId.longValue()))
+        perform(delete("/api/presupuestos/{id}", budgetId.longValue()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/presupuestos"))
+        perform(get("/api/presupuestos"))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
     }
@@ -301,7 +326,7 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long categoryId = createCategory("Ahorro", "INCOME");
 
-        MvcResult createdBudget = mockMvc.perform(post("/api/presupuestos")
+        MvcResult createdBudget = perform(post("/api/presupuestos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -321,7 +346,7 @@ class AplicacionRaccoonCashApiTests {
 
         Number budgetId = JsonPath.read(createdBudget.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(post("/api/presupuestos/{id}/categories", budgetId.longValue())
+        perform(post("/api/presupuestos/{id}/categories", budgetId.longValue())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -332,7 +357,7 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.categoryId").value(categoryId));
 
-        mockMvc.perform(post("/api/transactions")
+        perform(post("/api/transactions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -346,11 +371,11 @@ class AplicacionRaccoonCashApiTests {
                                 """.formatted(accountId, categoryId)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/presupuestos/{id}", budgetId.longValue()))
+        perform(get("/api/presupuestos/{id}", budgetId.longValue()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.montoActual").value(0));
 
-        mockMvc.perform(post("/api/transactions")
+        perform(post("/api/transactions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -366,7 +391,7 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.budgetId").value(budgetId.longValue()));
 
-        mockMvc.perform(get("/api/presupuestos/{id}", budgetId.longValue()))
+        perform(get("/api/presupuestos/{id}", budgetId.longValue()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.montoActual").value(300));
     }
@@ -376,11 +401,11 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long goalId = createSavingGoal();
 
-        mockMvc.perform(get("/api/saving-goals/{id}/transactions", goalId))
+        perform(get("/api/saving-goals/{id}/transactions", goalId))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
 
-        mockMvc.perform(post("/api/transactions")
+        perform(post("/api/transactions")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -396,16 +421,16 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(jsonPath("$.savingGoalId").value(goalId))
                 .andExpect(jsonPath("$.type").value("TRANSFER"));
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(4750));
 
-        mockMvc.perform(get("/api/saving-goals/{id}", goalId))
+        perform(get("/api/saving-goals/{id}", goalId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentAmount").value(250))
                 .andExpect(jsonPath("$.transactionCount").value(1));
 
-        mockMvc.perform(get("/api/saving-goals/{id}/transactions", goalId))
+        perform(get("/api/saving-goals/{id}/transactions", goalId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].description").value("Ahorro para Emergencias"));
     }
@@ -414,7 +439,7 @@ class AplicacionRaccoonCashApiTests {
     void createDebtsCreatesInitialTransactionsAndUpdatesAccountBalance() throws Exception {
         Long accountId = createAccount();
 
-        MvcResult iOweResult = mockMvc.perform(post("/api/debts")
+        MvcResult iOweResult = perform(post("/api/debts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -439,7 +464,7 @@ class AplicacionRaccoonCashApiTests {
 
         Number iOweDebtId = JsonPath.read(iOweResult.getResponse().getContentAsString(), "$.id");
 
-        MvcResult owedToMeResult = mockMvc.perform(post("/api/debts")
+        MvcResult owedToMeResult = perform(post("/api/debts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -457,11 +482,11 @@ class AplicacionRaccoonCashApiTests {
 
         Number owedToMeDebtId = JsonPath.read(owedToMeResult.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5200));
 
-        mockMvc.perform(get("/api/transactions")
+        perform(get("/api/transactions")
                         .param("accountId", accountId.toString())
                         .param("type", "INCOME"))
                 .andExpect(status().isOk())
@@ -469,7 +494,7 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(jsonPath("$[0].categoryName").value("Préstamo"))
                 .andExpect(jsonPath("$[0].debtId").value(iOweDebtId.longValue()));
 
-        mockMvc.perform(get("/api/transactions")
+        perform(get("/api/transactions")
                         .param("accountId", accountId.toString())
                         .param("type", "EXPENSE"))
                 .andExpect(status().isOk())
@@ -480,7 +505,7 @@ class AplicacionRaccoonCashApiTests {
 
     @Test
     void createDebtWithoutAccountFails() throws Exception {
-        mockMvc.perform(post("/api/debts")
+        perform(post("/api/debts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -500,7 +525,7 @@ class AplicacionRaccoonCashApiTests {
         Long bankAccountId = createAccount("Banco", 1000);
         Long debtId = createDebt(cashAccountId, "Juan", "I_OWE", 500, "2026-06-30");
 
-        MvcResult transactionResult = mockMvc.perform(get("/api/transactions")
+        MvcResult transactionResult = perform(get("/api/transactions")
                         .param("accountId", cashAccountId.toString())
                         .param("type", "INCOME"))
                 .andExpect(status().isOk())
@@ -508,7 +533,7 @@ class AplicacionRaccoonCashApiTests {
         Number transactionId = JsonPath.read(transactionResult.getResponse().getContentAsString(), "$[0].id");
         Number categoryId = JsonPath.read(transactionResult.getResponse().getContentAsString(), "$[0].categoryId");
 
-        mockMvc.perform(put("/api/transactions/{id}", transactionId.longValue())
+        perform(put("/api/transactions/{id}", transactionId.longValue())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -525,14 +550,14 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(jsonPath("$.accountId").value(bankAccountId))
                 .andExpect(jsonPath("$.debtId").value(debtId));
 
-        mockMvc.perform(get("/api/accounts/{id}", cashAccountId))
+        perform(get("/api/accounts/{id}", cashAccountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5000));
-        mockMvc.perform(get("/api/accounts/{id}", bankAccountId))
+        perform(get("/api/accounts/{id}", bankAccountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(1500));
 
-        mockMvc.perform(get("/api/debts/{id}", debtId))
+        perform(get("/api/debts/{id}", debtId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountId").value(bankAccountId))
                 .andExpect(jsonPath("$.totalAmount").value(500))
@@ -545,26 +570,26 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long debtId = createDebt(accountId, "Carlos", "OWED_TO_ME", 300, "2026-07-05");
 
-        MvcResult transactionResult = mockMvc.perform(get("/api/transactions")
+        MvcResult transactionResult = perform(get("/api/transactions")
                         .param("accountId", accountId.toString())
                         .param("type", "EXPENSE"))
                 .andExpect(status().isOk())
                 .andReturn();
         Number transactionId = JsonPath.read(transactionResult.getResponse().getContentAsString(), "$[0].id");
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(4700));
 
-        mockMvc.perform(delete("/api/transactions/{id}", transactionId.longValue()))
+        perform(delete("/api/transactions/{id}", transactionId.longValue()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5000));
-        mockMvc.perform(get("/api/transactions/{id}", transactionId.longValue()))
+        perform(get("/api/transactions/{id}", transactionId.longValue()))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/debts/{id}", debtId))
+        perform(get("/api/debts/{id}", debtId))
                 .andExpect(status().isNotFound());
     }
 
@@ -573,7 +598,7 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long debtId = createDebt(accountId, "Juan", "I_OWE", 500, "2026-06-30");
 
-        mockMvc.perform(post("/api/debts/{id}/payments", debtId)
+        perform(post("/api/debts/{id}/payments", debtId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -584,19 +609,19 @@ class AplicacionRaccoonCashApiTests {
                                 """.formatted(accountId)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5300));
 
-        mockMvc.perform(delete("/api/debts/{id}", debtId))
+        perform(delete("/api/debts/{id}", debtId))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5000));
-        mockMvc.perform(get("/api/debts/{id}", debtId))
+        perform(get("/api/debts/{id}", debtId))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/transactions")
+        perform(get("/api/transactions")
                         .param("accountId", accountId.toString()))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
@@ -607,7 +632,7 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long debtId = createDebt(accountId, "Juan", "I_OWE", 500, "2026-06-30");
 
-        MvcResult paymentResult = mockMvc.perform(post("/api/debts/{id}/payments", debtId)
+        MvcResult paymentResult = perform(post("/api/debts/{id}/payments", debtId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -626,17 +651,17 @@ class AplicacionRaccoonCashApiTests {
 
         Number transactionId = JsonPath.read(paymentResult.getResponse().getContentAsString(), "$.transactionId");
 
-        mockMvc.perform(get("/api/debts/{id}", debtId))
+        perform(get("/api/debts/{id}", debtId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paidAmount").value(200))
                 .andExpect(jsonPath("$.remainingAmount").value(300))
                 .andExpect(jsonPath("$.status").value("PARTIALLY_PAID"));
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5300));
 
-        mockMvc.perform(get("/api/transactions")
+        perform(get("/api/transactions")
                         .param("accountId", accountId.toString())
                         .param("type", "EXPENSE"))
                 .andExpect(status().isOk())
@@ -646,7 +671,7 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(jsonPath("$[0].debtId").value(debtId))
                 .andExpect(jsonPath("$[0].generatedByDebtPayment").value(true));
 
-        mockMvc.perform(delete("/api/transactions/{id}", transactionId.longValue()))
+        perform(delete("/api/transactions/{id}", transactionId.longValue()))
                 .andExpect(status().isBadRequest());
     }
 
@@ -655,7 +680,7 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long debtId = createDebt(accountId, "Juan", "I_OWE", 300, "2026-06-30");
 
-        mockMvc.perform(post("/api/debts/{id}/payments", debtId)
+        perform(post("/api/debts/{id}/payments", debtId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -666,13 +691,13 @@ class AplicacionRaccoonCashApiTests {
                                 """.formatted(accountId)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/debts/{id}", debtId))
+        perform(get("/api/debts/{id}", debtId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paidAmount").value(300))
                 .andExpect(jsonPath("$.remainingAmount").value(0))
                 .andExpect(jsonPath("$.status").value("PAID"));
 
-        mockMvc.perform(post("/api/debts/{id}/payments", debtId)
+        perform(post("/api/debts/{id}/payments", debtId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -688,7 +713,7 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long debtId = createDebt(accountId, "Carlos", "OWED_TO_ME", 300, "2026-07-05");
 
-        mockMvc.perform(post("/api/debts/{id}/payments", debtId)
+        perform(post("/api/debts/{id}/payments", debtId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -699,15 +724,15 @@ class AplicacionRaccoonCashApiTests {
                                 """.formatted(accountId)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5000));
 
-        mockMvc.perform(get("/api/debts/{id}", debtId))
+        perform(get("/api/debts/{id}", debtId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAID"));
 
-        mockMvc.perform(get("/api/transactions")
+        perform(get("/api/transactions")
                         .param("accountId", accountId.toString())
                         .param("type", "INCOME"))
                 .andExpect(status().isOk())
@@ -722,7 +747,7 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long debtId = createDebt(accountId, "Juan", "I_OWE", 100, "2026-06-30");
 
-        mockMvc.perform(post("/api/debts/{id}/payments", debtId)
+        perform(post("/api/debts/{id}/payments", debtId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -733,7 +758,7 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(status().isBadRequest());
 
         Long lowBalanceAccountId = createAccount("Caja chica", 50);
-        mockMvc.perform(post("/api/debts")
+        perform(post("/api/debts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -753,7 +778,7 @@ class AplicacionRaccoonCashApiTests {
         Long accountId = createAccount();
         Long debtId = createDebt(accountId, "Juan", "I_OWE", 500, "2026-06-30");
 
-        MvcResult paymentResult = mockMvc.perform(post("/api/debts/{id}/payments", debtId)
+        MvcResult paymentResult = perform(post("/api/debts/{id}/payments", debtId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -768,24 +793,24 @@ class AplicacionRaccoonCashApiTests {
         Number paymentId = JsonPath.read(paymentResult.getResponse().getContentAsString(), "$.id");
         Number transactionId = JsonPath.read(paymentResult.getResponse().getContentAsString(), "$.transactionId");
 
-        mockMvc.perform(delete("/api/debts/{id}/payments/{paymentId}", debtId, paymentId.longValue()))
+        perform(delete("/api/debts/{id}/payments/{paymentId}", debtId, paymentId.longValue()))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/api/accounts/{id}", accountId))
+        perform(get("/api/accounts/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentBalance").value(5500));
 
-        mockMvc.perform(get("/api/debts/{id}", debtId))
+        perform(get("/api/debts/{id}", debtId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paidAmount").value(0))
                 .andExpect(jsonPath("$.remainingAmount").value(500))
                 .andExpect(jsonPath("$.status").value("PENDING"));
 
-        mockMvc.perform(get("/api/debts/{id}/payments", debtId))
+        perform(get("/api/debts/{id}/payments", debtId))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
 
-        mockMvc.perform(get("/api/transactions/{id}", transactionId.longValue()))
+        perform(get("/api/transactions/{id}", transactionId.longValue()))
                 .andExpect(status().isNotFound());
     }
 
@@ -797,7 +822,7 @@ class AplicacionRaccoonCashApiTests {
         Long overdueDebtId = createDebtWithReminder(cashAccountId, "Luis", "I_OWE", 150, "2020-01-02", "2020-01-01T09:00:00");
         createDebt(bankAccountId, "Carlos", "OWED_TO_ME", 300, "2030-07-05");
 
-        mockMvc.perform(get("/api/debts")
+        perform(get("/api/debts")
                         .param("type", "I_OWE")
                         .param("overdue", "true")
                         .param("search", "luis"))
@@ -805,14 +830,14 @@ class AplicacionRaccoonCashApiTests {
                 .andExpect(jsonPath("$[0].id").value(overdueDebtId))
                 .andExpect(jsonPath("$[0].overdue").value(true));
 
-        mockMvc.perform(get("/api/debts")
+        perform(get("/api/debts")
                         .param("accountId", bankAccountId.toString())
                         .param("dueFrom", "2030-01-01")
                         .param("dueTo", "2030-12-31"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].personName").value("Carlos"));
 
-        mockMvc.perform(get("/api/debts/reminders"))
+        perform(get("/api/debts/reminders"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(overdueDebtId))
                 .andExpect(jsonPath("$[0].reminderEnabled").value(true));
@@ -823,7 +848,7 @@ class AplicacionRaccoonCashApiTests {
     }
 
     private Long createAccount(String name, int initialBalance) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/accounts")
+        MvcResult result = perform(post("/api/accounts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -846,7 +871,7 @@ class AplicacionRaccoonCashApiTests {
     }
 
     private Long createCategory(String name, String type) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/categories")
+        MvcResult result = perform(post("/api/categories")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -864,7 +889,7 @@ class AplicacionRaccoonCashApiTests {
     }
 
     private Long createSavingGoal() throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/saving-goals")
+        MvcResult result = perform(post("/api/saving-goals")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -884,7 +909,7 @@ class AplicacionRaccoonCashApiTests {
     }
 
     private Long createDebt(Long accountId, String personName, String type, int totalAmount, String dueDate) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/debts")
+        MvcResult result = perform(post("/api/debts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -909,7 +934,7 @@ class AplicacionRaccoonCashApiTests {
                                         int totalAmount,
                                         String dueDate,
                                         String reminderAt) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/debts")
+        MvcResult result = perform(post("/api/debts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

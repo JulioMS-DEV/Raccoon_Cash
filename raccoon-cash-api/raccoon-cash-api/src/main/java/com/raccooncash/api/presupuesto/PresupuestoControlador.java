@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,57 +27,68 @@ public class PresupuestoControlador {
     }
 
     @GetMapping
-    public ResponseEntity<List<PresupuestoRespuesta>> getAllBudgets() {
-        return ResponseEntity.ok(budgetService.getAllBudgets());
+    public ResponseEntity<List<PresupuestoRespuesta>> getAllBudgets(@RequestHeader("X-Usuario-Id") Long usuarioId) {
+        return ResponseEntity.ok(budgetService.getAllBudgets(usuarioId));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PresupuestoRespuesta> getBudgetById(@PathVariable Long id) {
-        return ResponseEntity.ok(budgetService.getBudgetById(id));
+    public ResponseEntity<PresupuestoRespuesta> getBudgetById(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                              @PathVariable Long id) {
+        return ResponseEntity.ok(budgetService.getBudgetById(usuarioId, id));
     }
 
     @PostMapping
-    public ResponseEntity<PresupuestoRespuesta> createBudget(@Valid @RequestBody PresupuestoSolicitud request) {
-        return ResponseEntity.ok(budgetService.createBudget(request));
+    public ResponseEntity<PresupuestoRespuesta> createBudget(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                             @Valid @RequestBody PresupuestoSolicitud request) {
+        return ResponseEntity.ok(budgetService.createBudget(usuarioId, request));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<PresupuestoRespuesta> updateBudget(@PathVariable Long id, @Valid @RequestBody PresupuestoSolicitud request) {
-        return ResponseEntity.ok(budgetService.updateBudget(id, request));
+    public ResponseEntity<PresupuestoRespuesta> updateBudget(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                             @PathVariable Long id,
+                                                             @Valid @RequestBody PresupuestoSolicitud request) {
+        return ResponseEntity.ok(budgetService.updateBudget(usuarioId, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBudget(@PathVariable Long id) {
-        budgetService.deleteBudget(id);
+    public ResponseEntity<Void> deleteBudget(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                             @PathVariable Long id) {
+        budgetService.deleteBudget(usuarioId, id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/summary")
-    public ResponseEntity<ResumenPresupuestoRespuesta> getBudgetSummary(@PathVariable Long id) {
-        return ResponseEntity.ok(budgetService.getBudgetSummary(id));
+    public ResponseEntity<ResumenPresupuestoRespuesta> getBudgetSummary(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                                        @PathVariable Long id) {
+        return ResponseEntity.ok(budgetService.getBudgetSummary(usuarioId, id));
     }
 
     @GetMapping("/{budgetId}/categories")
-    public ResponseEntity<List<LimiteCategoriaPresupuestoRespuesta>> getCategoryLimits(@PathVariable Long budgetId) {
-        return ResponseEntity.ok(limitService.getLimits(budgetId));
+    public ResponseEntity<List<LimiteCategoriaPresupuestoRespuesta>> getCategoryLimits(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                                                       @PathVariable Long budgetId) {
+        return ResponseEntity.ok(limitService.getLimits(usuarioId, budgetId));
     }
 
     @PostMapping("/{budgetId}/categories")
-    public ResponseEntity<LimiteCategoriaPresupuestoRespuesta> createCategoryLimit(@PathVariable Long budgetId,
-                                                                            @Valid @RequestBody LimiteCategoriaPresupuestoSolicitud request) {
-        return ResponseEntity.ok(limitService.createLimit(budgetId, request));
+    public ResponseEntity<LimiteCategoriaPresupuestoRespuesta> createCategoryLimit(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                                                   @PathVariable Long budgetId,
+                                                                                   @Valid @RequestBody LimiteCategoriaPresupuestoSolicitud request) {
+        return ResponseEntity.ok(limitService.createLimit(usuarioId, budgetId, request));
     }
 
     @PutMapping("/{budgetId}/categories/{limitId}")
-    public ResponseEntity<LimiteCategoriaPresupuestoRespuesta> updateCategoryLimit(@PathVariable Long budgetId,
-                                                                            @PathVariable Long limitId,
-                                                                            @Valid @RequestBody LimiteCategoriaPresupuestoSolicitud request) {
-        return ResponseEntity.ok(limitService.updateLimit(budgetId, limitId, request));
+    public ResponseEntity<LimiteCategoriaPresupuestoRespuesta> updateCategoryLimit(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                                                   @PathVariable Long budgetId,
+                                                                                   @PathVariable Long limitId,
+                                                                                   @Valid @RequestBody LimiteCategoriaPresupuestoSolicitud request) {
+        return ResponseEntity.ok(limitService.updateLimit(usuarioId, budgetId, limitId, request));
     }
 
     @DeleteMapping("/{budgetId}/categories/{limitId}")
-    public ResponseEntity<Void> deleteCategoryLimit(@PathVariable Long budgetId, @PathVariable Long limitId) {
-        limitService.deleteLimit(budgetId, limitId);
+    public ResponseEntity<Void> deleteCategoryLimit(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                    @PathVariable Long budgetId,
+                                                    @PathVariable Long limitId) {
+        limitService.deleteLimit(usuarioId, budgetId, limitId);
         return ResponseEntity.noContent().build();
     }
 }

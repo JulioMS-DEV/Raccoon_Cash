@@ -69,6 +69,15 @@ class AccountsViewModel : ViewModel() {
         }
     }
 
+    fun clearSessionData() {
+        _accounts.value = emptyList()
+        _transactions.value = emptyList()
+        _categories.value = emptyList()
+        _isLoading.value = false
+        _error.value = null
+        _addAccountSuccess.value = false
+    }
+
     fun createAccount(name: String, balance: Double, currency: String, color: String, precision: Int) {
         viewModelScope.launch {
             _isLoading.value = true

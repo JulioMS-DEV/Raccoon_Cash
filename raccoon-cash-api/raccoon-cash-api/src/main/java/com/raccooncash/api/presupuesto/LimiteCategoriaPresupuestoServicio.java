@@ -28,18 +28,18 @@ public class LimiteCategoriaPresupuestoServicio {
     }
 
     @Transactional(readOnly = true)
-    public List<LimiteCategoriaPresupuestoRespuesta> getLimits(Long budgetId) {
-        budgetService.findActiveBudget(budgetId);
-        return limitRepository.findAllByBudgetId(budgetId)
+    public List<LimiteCategoriaPresupuestoRespuesta> getLimits(Long usuarioId, Long budgetId) {
+        budgetService.findActiveBudget(usuarioId, budgetId);
+        return limitRepository.findAllByBudget_IdAndBudget_Usuario_Id(budgetId, usuarioId)
                 .stream()
                 .map(LimiteCategoriaPresupuestoRespuesta::new)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public LimiteCategoriaPresupuestoRespuesta createLimit(Long budgetId, LimiteCategoriaPresupuestoSolicitud request) {
+    public LimiteCategoriaPresupuestoRespuesta createLimit(Long usuarioId, Long budgetId, LimiteCategoriaPresupuestoSolicitud request) {
         validateAmount(request.getAmountLimit());
-        Presupuesto budget = budgetService.findActiveBudget(budgetId);
+        Presupuesto budget = budgetService.findActiveBudget(usuarioId, budgetId);
         Categoria category = findBudgetCategory(budget, request.getCategoryId());
 
         LimiteCategoriaPresupuesto limit = new LimiteCategoriaPresupuesto();
@@ -52,10 +52,10 @@ public class LimiteCategoriaPresupuestoServicio {
     }
 
     @Transactional
-    public LimiteCategoriaPresupuestoRespuesta updateLimit(Long budgetId, Long limitId, LimiteCategoriaPresupuestoSolicitud request) {
+    public LimiteCategoriaPresupuestoRespuesta updateLimit(Long usuarioId, Long budgetId, Long limitId, LimiteCategoriaPresupuestoSolicitud request) {
         validateAmount(request.getAmountLimit());
-        Presupuesto budget = budgetService.findActiveBudget(budgetId);
-        LimiteCategoriaPresupuesto limit = findLimit(budgetId, limitId);
+        Presupuesto budget = budgetService.findActiveBudget(usuarioId, budgetId);
+        LimiteCategoriaPresupuesto limit = findLimit(usuarioId, budgetId, limitId);
         Categoria category = findBudgetCategory(budget, request.getCategoryId());
 
         limit.setCategory(category);
@@ -66,14 +66,14 @@ public class LimiteCategoriaPresupuestoServicio {
     }
 
     @Transactional
-    public void deleteLimit(Long budgetId, Long limitId) {
-        budgetService.findActiveBudget(budgetId);
-        LimiteCategoriaPresupuesto limit = findLimit(budgetId, limitId);
+    public void deleteLimit(Long usuarioId, Long budgetId, Long limitId) {
+        budgetService.findActiveBudget(usuarioId, budgetId);
+        LimiteCategoriaPresupuesto limit = findLimit(usuarioId, budgetId, limitId);
         limitRepository.delete(limit);
     }
 
-    private LimiteCategoriaPresupuesto findLimit(Long budgetId, Long limitId) {
-        return limitRepository.findByIdAndBudgetId(limitId, budgetId)
+    private LimiteCategoriaPresupuesto findLimit(Long usuarioId, Long budgetId, Long limitId) {
+        return limitRepository.findByIdAndBudget_IdAndBudget_Usuario_Id(limitId, budgetId, usuarioId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Limite de categoria no encontrado"));
     }
 

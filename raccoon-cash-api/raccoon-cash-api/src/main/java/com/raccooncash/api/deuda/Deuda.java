@@ -1,6 +1,7 @@
 package com.raccooncash.api.deuda;
 
 import com.raccooncash.api.cuenta.Cuenta;
+import com.raccooncash.api.usuario.Usuario;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,13 +27,18 @@ import java.time.LocalDateTime;
         @Index(name = "idx_debts_type", columnList = "type"),
         @Index(name = "idx_debts_status", columnList = "status"),
         @Index(name = "idx_debts_due_date", columnList = "due_date"),
-        @Index(name = "idx_debts_account_id", columnList = "account_id")
+        @Index(name = "idx_debts_account_id", columnList = "account_id"),
+        @Index(name = "idx_debts_usuario_id", columnList = "usuario_id")
 })
 public class Deuda {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
 
     @Column(nullable = false)
     private String personName;
@@ -104,6 +110,14 @@ public class Deuda {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Usuario getUsuario() {
+        return usuario;
+    }
+
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
     }
 
     public String getPersonName() {

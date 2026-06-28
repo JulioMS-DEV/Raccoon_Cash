@@ -55,6 +55,16 @@ class DebtsViewModel : ViewModel() {
         }
     }
 
+    fun clearSessionData() {
+        _debts.value = emptyList()
+        _selectedDebt.value = null
+        _payments.value = emptyList()
+        _accounts.value = emptyList()
+        _isLoading.value = false
+        _error.value = null
+        _operationSuccess.value = false
+    }
+
     fun loadDebts(
         type: String? = null,
         status: String? = null,

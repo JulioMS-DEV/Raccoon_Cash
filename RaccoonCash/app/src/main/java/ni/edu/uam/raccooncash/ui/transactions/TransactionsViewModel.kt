@@ -63,6 +63,18 @@ class TransactionsViewModel : ViewModel() {
         }
     }
 
+    fun refreshInitialData() {
+        loadInitialData()
+    }
+
+    fun clearSessionData() {
+        _accounts.value = emptyList()
+        _categories.value = emptyList()
+        _isLoading.value = false
+        _error.value = null
+        _addTransactionSuccess.value = false
+    }
+
     fun createTransaction(
         amount: Double,
         type: String,

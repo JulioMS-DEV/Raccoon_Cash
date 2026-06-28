@@ -45,6 +45,15 @@ class SavingsViewModel : ViewModel() {
         }
     }
 
+    fun clearSessionData() {
+        _savingGoals.value = emptyList()
+        _currentGoalTransactions.value = emptyList()
+        _addGoalSuccess.value = false
+        _addTransactionSuccess.value = false
+        _isLoading.value = false
+        _error.value = null
+    }
+
     private suspend fun loadSavingGoalsSuspend() {
         _isLoading.value = true
         try {
