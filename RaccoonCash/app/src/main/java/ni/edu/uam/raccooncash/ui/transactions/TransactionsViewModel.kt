@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import ni.edu.uam.raccooncash.data.model.*
 import ni.edu.uam.raccooncash.data.repository.RaccoonRepository
+import org.json.JSONObject
+import retrofit2.HttpException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -147,6 +149,9 @@ class TransactionsViewModel : ViewModel() {
                 _accounts.value = repository.getAccounts()
 
                 _addTransactionSuccess.value = true
+            } catch (e: HttpException) {
+                _error.value = httpErrorMessage(e, "Error al actualizar la transacción")
+                e.printStackTrace()
             } catch (e: Exception) {
                 _error.value = "Error al actualizar la transacción."
                 e.printStackTrace()
@@ -166,6 +171,9 @@ class TransactionsViewModel : ViewModel() {
                 _accounts.value = repository.getAccounts()
 
                 _addTransactionSuccess.value = true
+            } catch (e: HttpException) {
+                _error.value = httpErrorMessage(e, "Error al eliminar la transacción")
+                e.printStackTrace()
             } catch (e: Exception) {
                 _error.value = "Error al eliminar la transacción."
                 e.printStackTrace()
@@ -236,5 +244,13 @@ class TransactionsViewModel : ViewModel() {
 
     fun resetSuccess() {
         _addTransactionSuccess.value = false
+    }
+
+    private fun httpErrorMessage(e: HttpException, fallback: String): String {
+        val message = e.response()?.errorBody()?.string()?.let { body ->
+            runCatching { JSONObject(body).optString("message") }.getOrNull()
+                ?.takeIf { it.isNotBlank() }
+        }
+        return message ?: "$fallback (${e.code()})."
     }
 }

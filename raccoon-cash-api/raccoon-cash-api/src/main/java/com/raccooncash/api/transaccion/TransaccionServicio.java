@@ -5,6 +5,9 @@ import com.raccooncash.api.cuenta.CuentaRepositorio;
 import com.raccooncash.api.categoria.Categoria;
 import com.raccooncash.api.categoria.CategoriaRepositorio;
 import com.raccooncash.api.categoria.TipoCategoria;
+import com.raccooncash.api.deuda.Deuda;
+import com.raccooncash.api.deuda.EstadoDeuda;
+import com.raccooncash.api.deuda.TipoDeuda;
 import com.raccooncash.api.excepcion.SolicitudIncorrectaException;
 import com.raccooncash.api.excepcion.RecursoNoEncontradoException;
 import com.raccooncash.api.presupuesto.Presupuesto;
@@ -15,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -76,7 +80,11 @@ public class TransaccionServicio {
     @Transactional
     public TransaccionRespuesta updateTransaction(Long id, TransaccionSolicitud request) {
         Transaccion transaction = findActiveTransaction(id);
+        boolean initialDebtTransaction = isInitialDebtTransaction(transaction);
         ensureTransactionCanBeManagedDirectly(transaction);
+        if (initialDebtTransaction) {
+            validateInitialDebtTransactionUpdate(transaction, request);
+        }
 
         revertTransactionEffect(transaction);
         saveAccountsFor(transaction);
@@ -84,6 +92,9 @@ public class TransaccionServicio {
         buildTransactionFromRequest(transaction, request);
         applyTransactionEffect(transaction);
         saveAccountsFor(transaction);
+        if (initialDebtTransaction) {
+            syncDebtFromInitialTransaction(transaction);
+        }
 
         Transaccion updatedTransaction = transactionRepository.save(transaction);
         return new TransaccionRespuesta(updatedTransaction);
@@ -92,6 +103,17 @@ public class TransaccionServicio {
     @Transactional
     public void deleteTransaction(Long id) {
         Transaccion transaction = findActiveTransaction(id);
+        if (isInitialDebtTransaction(transaction)) {
+            ensureInitialDebtTransactionCanBeDeleted(transaction);
+            revertTransactionEffect(transaction);
+            cancelDebt(transaction.getDebt());
+            transaction.setActive(false);
+
+            saveAccountsFor(transaction);
+            transactionRepository.save(transaction);
+            return;
+        }
+
         ensureTransactionCanBeManagedDirectly(transaction);
         revertTransactionEffect(transaction);
         transaction.setActive(false);
@@ -101,9 +123,84 @@ public class TransaccionServicio {
     }
 
     private void ensureTransactionCanBeManagedDirectly(Transaccion transaction) {
-        if (Boolean.TRUE.equals(transaction.getGeneratedByDebtPayment()) || transaction.getDebt() != null) {
-            throw new SolicitudIncorrectaException("Las transacciones vinculadas a deudas se gestionan desde el modulo de deudas");
+        if (Boolean.TRUE.equals(transaction.getGeneratedByDebtPayment())) {
+            throw new SolicitudIncorrectaException("Las transacciones generadas por pagos de deuda se gestionan desde el modulo de deudas");
         }
+    }
+
+    private boolean isInitialDebtTransaction(Transaccion transaction) {
+        return transaction.getDebt() != null && !Boolean.TRUE.equals(transaction.getGeneratedByDebtPayment());
+    }
+
+    private void validateInitialDebtTransactionUpdate(Transaccion transaction, TransaccionSolicitud request) {
+        validateRequestBasics(request);
+        if (request.getType() == TipoTransaccion.TRANSFER) {
+            throw new SolicitudIncorrectaException("La transaccion inicial de una deuda no puede convertirse en transferencia");
+        }
+        if (request.getSavingGoalId() != null) {
+            throw new SolicitudIncorrectaException("La transaccion inicial de una deuda no puede asociarse a una meta de ahorro");
+        }
+
+        Deuda debt = transaction.getDebt();
+        BigDecimal paidAmount = money(debt.getPaidAmount());
+        BigDecimal newAmount = money(request.getAmount());
+        if (newAmount.compareTo(paidAmount) < 0) {
+            throw new SolicitudIncorrectaException("El monto de la deuda no puede ser menor que lo ya pagado");
+        }
+        if (debt.getType() != debtTypeForInitialTransaction(request.getType())
+                && paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+            throw new SolicitudIncorrectaException("No se puede cambiar el tipo de deuda porque ya tiene pagos registrados");
+        }
+    }
+
+    private void ensureInitialDebtTransactionCanBeDeleted(Transaccion transaction) {
+        if (money(transaction.getDebt().getPaidAmount()).compareTo(BigDecimal.ZERO) > 0) {
+            throw new SolicitudIncorrectaException("No se puede eliminar la transaccion inicial porque la deuda ya tiene pagos registrados");
+        }
+    }
+
+    private void syncDebtFromInitialTransaction(Transaccion transaction) {
+        Deuda debt = transaction.getDebt();
+        BigDecimal totalAmount = money(transaction.getAmount());
+        BigDecimal paidAmount = money(debt.getPaidAmount());
+
+        debt.setAccount(transaction.getAccount());
+        debt.setTotalAmount(totalAmount);
+        debt.setPaidAmount(paidAmount);
+        debt.setRemainingAmount(money(totalAmount.subtract(paidAmount)));
+        debt.setType(debtTypeForInitialTransaction(transaction.getType()));
+        updateDebtStatus(debt);
+    }
+
+    private void cancelDebt(Deuda debt) {
+        debt.setActive(false);
+        debt.setStatus(EstadoDeuda.CANCELLED);
+        debt.setReminderEnabled(false);
+        debt.setReminderAt(null);
+    }
+
+    private TipoDeuda debtTypeForInitialTransaction(TipoTransaccion transactionType) {
+        if (transactionType == TipoTransaccion.INCOME) {
+            return TipoDeuda.I_OWE;
+        }
+        if (transactionType == TipoTransaccion.EXPENSE) {
+            return TipoDeuda.OWED_TO_ME;
+        }
+        throw new SolicitudIncorrectaException("La transaccion inicial de una deuda debe ser ingreso o gasto");
+    }
+
+    private void updateDebtStatus(Deuda debt) {
+        if (money(debt.getRemainingAmount()).compareTo(BigDecimal.ZERO) == 0) {
+            debt.setStatus(EstadoDeuda.PAID);
+            return;
+        }
+
+        if (money(debt.getPaidAmount()).compareTo(BigDecimal.ZERO) > 0) {
+            debt.setStatus(EstadoDeuda.PARTIALLY_PAID);
+            return;
+        }
+
+        debt.setStatus(EstadoDeuda.PENDING);
     }
 
     private Transaccion buildTransactionFromRequest(Transaccion transaction, TransaccionSolicitud request) {
@@ -235,6 +332,11 @@ public class TransaccionServicio {
 
     private BigDecimal currentBalance(Cuenta account) {
         return account.getCurrentBalance() != null ? account.getCurrentBalance() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal money(BigDecimal amount) {
+        BigDecimal safeAmount = amount != null ? amount : BigDecimal.ZERO;
+        return safeAmount.setScale(2, RoundingMode.HALF_UP);
     }
 
     private void saveAccountsFor(Transaccion transaction) {

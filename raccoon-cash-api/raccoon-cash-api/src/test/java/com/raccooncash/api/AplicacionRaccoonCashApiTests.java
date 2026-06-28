@@ -495,6 +495,114 @@ class AplicacionRaccoonCashApiTests {
     }
 
     @Test
+    void updateInitialDebtTransactionMovesBalanceAndUpdatesDebtAccount() throws Exception {
+        Long cashAccountId = createAccount();
+        Long bankAccountId = createAccount("Banco", 1000);
+        Long debtId = createDebt(cashAccountId, "Juan", "I_OWE", 500, "2026-06-30");
+
+        MvcResult transactionResult = mockMvc.perform(get("/api/transactions")
+                        .param("accountId", cashAccountId.toString())
+                        .param("type", "INCOME"))
+                .andExpect(status().isOk())
+                .andReturn();
+        Number transactionId = JsonPath.read(transactionResult.getResponse().getContentAsString(), "$[0].id");
+        Number categoryId = JsonPath.read(transactionResult.getResponse().getContentAsString(), "$[0].categoryId");
+
+        mockMvc.perform(put("/api/transactions/{id}", transactionId.longValue())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "description": "Prestamo recibido de Juan",
+                                  "amount": 500,
+                                  "type": "INCOME",
+                                  "date": "2026-06-03T10:00:00",
+                                  "accountId": %d,
+                                  "categoryId": %d,
+                                  "notes": "Cuenta corregida"
+                                }
+                                """.formatted(bankAccountId, categoryId.longValue())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountId").value(bankAccountId))
+                .andExpect(jsonPath("$.debtId").value(debtId));
+
+        mockMvc.perform(get("/api/accounts/{id}", cashAccountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance").value(5000));
+        mockMvc.perform(get("/api/accounts/{id}", bankAccountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance").value(1500));
+
+        mockMvc.perform(get("/api/debts/{id}", debtId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountId").value(bankAccountId))
+                .andExpect(jsonPath("$.totalAmount").value(500))
+                .andExpect(jsonPath("$.remainingAmount").value(500))
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void deleteInitialDebtTransactionRestoresBalanceAndCancelsDebt() throws Exception {
+        Long accountId = createAccount();
+        Long debtId = createDebt(accountId, "Carlos", "OWED_TO_ME", 300, "2026-07-05");
+
+        MvcResult transactionResult = mockMvc.perform(get("/api/transactions")
+                        .param("accountId", accountId.toString())
+                        .param("type", "EXPENSE"))
+                .andExpect(status().isOk())
+                .andReturn();
+        Number transactionId = JsonPath.read(transactionResult.getResponse().getContentAsString(), "$[0].id");
+
+        mockMvc.perform(get("/api/accounts/{id}", accountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance").value(4700));
+
+        mockMvc.perform(delete("/api/transactions/{id}", transactionId.longValue()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/accounts/{id}", accountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance").value(5000));
+        mockMvc.perform(get("/api/transactions/{id}", transactionId.longValue()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/debts/{id}", debtId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteDebtRestoresBalanceAndCancelsLinkedTransactions() throws Exception {
+        Long accountId = createAccount();
+        Long debtId = createDebt(accountId, "Juan", "I_OWE", 500, "2026-06-30");
+
+        mockMvc.perform(post("/api/debts/{id}/payments", debtId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "amount": 200,
+                                  "paymentDate": "2026-06-25",
+                                  "accountId": %d
+                                }
+                                """.formatted(accountId)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/accounts/{id}", accountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance").value(5300));
+
+        mockMvc.perform(delete("/api/debts/{id}", debtId))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/accounts/{id}", accountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentBalance").value(5000));
+        mockMvc.perform(get("/api/debts/{id}", debtId))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/transactions")
+                        .param("accountId", accountId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+    }
+
+    @Test
     void partialPaymentForIOweSubtractsBalanceCreatesExpenseAndBlocksDirectTransactionDelete() throws Exception {
         Long accountId = createAccount();
         Long debtId = createDebt(accountId, "Juan", "I_OWE", 500, "2026-06-30");

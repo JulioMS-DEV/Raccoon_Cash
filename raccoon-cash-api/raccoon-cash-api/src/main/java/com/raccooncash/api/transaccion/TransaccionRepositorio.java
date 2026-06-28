@@ -22,6 +22,16 @@ public interface TransaccionRepositorio extends JpaRepository<Transaccion, Long>
             """)
     Optional<Transaccion> findActiveById(@Param("id") Long id);
 
+    @Query("""
+            SELECT t FROM TransaccionFinanciera t
+            JOIN FETCH t.account account
+            LEFT JOIN FETCH t.toAccount destination
+            LEFT JOIN FETCH t.category category
+            WHERE t.debt.id = :debtId
+              AND (t.active = true OR t.active IS NULL)
+            """)
+    List<Transaccion> findActiveByDebtId(@Param("debtId") Long debtId);
+
     List<Transaccion> findBySavingGoalAndActiveTrue(SavingGoal savingGoal);
 
     @Query("""

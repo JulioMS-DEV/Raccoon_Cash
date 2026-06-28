@@ -129,6 +129,20 @@ public class DeudaServicio {
     @Transactional
     public void deleteDebt(Long id) {
         Deuda debt = findActiveDebt(id);
+        List<Transaccion> transactions = transactionRepository.findActiveByDebtId(id);
+        for (Transaccion transaction : transactions) {
+            reverseTransactionEffect(transaction);
+            transaction.setActive(false);
+            saveAccountsFor(transaction);
+            transactionRepository.save(transaction);
+        }
+
+        List<PagoDeuda> payments = paymentRepository.findAllByDebtIdAndActiveTrue(id);
+        for (PagoDeuda payment : payments) {
+            payment.setActive(false);
+            paymentRepository.save(payment);
+        }
+
         debt.setActive(false);
         debt.setStatus(EstadoDeuda.CANCELLED);
         debt.setReminderEnabled(false);
@@ -325,6 +339,33 @@ public class DeudaServicio {
         }
 
         account.setCurrentBalance(money(currentBalance(account).subtract(amount)));
+    }
+
+    private void reverseTransactionEffect(Transaccion transaction) {
+        BigDecimal amount = safeAmount(transaction.getAmount());
+        if (transaction.getType() == TipoTransaccion.INCOME) {
+            transaction.getAccount().setCurrentBalance(money(currentBalance(transaction.getAccount()).subtract(amount)));
+            return;
+        }
+
+        if (transaction.getType() == TipoTransaccion.EXPENSE) {
+            transaction.getAccount().setCurrentBalance(money(currentBalance(transaction.getAccount()).add(amount)));
+            return;
+        }
+
+        if (transaction.getType() == TipoTransaccion.TRANSFER) {
+            transaction.getAccount().setCurrentBalance(money(currentBalance(transaction.getAccount()).add(amount)));
+            if (transaction.getToAccount() != null) {
+                transaction.getToAccount().setCurrentBalance(money(currentBalance(transaction.getToAccount()).subtract(amount)));
+            }
+        }
+    }
+
+    private void saveAccountsFor(Transaccion transaction) {
+        accountRepository.save(transaction.getAccount());
+        if (transaction.getToAccount() != null) {
+            accountRepository.save(transaction.getToAccount());
+        }
     }
 
     private void ensureDebtAllowsPayments(Deuda debt) {

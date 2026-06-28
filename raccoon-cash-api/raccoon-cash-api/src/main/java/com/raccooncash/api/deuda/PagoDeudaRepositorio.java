@@ -9,6 +9,7 @@ import java.util.Optional;
 @Repository
 public interface PagoDeudaRepositorio extends JpaRepository<PagoDeuda, Long> {
     List<PagoDeuda> findAllByDebtIdAndActiveTrueOrderByPaymentDateDescCreatedAtDesc(Long debtId);
+    List<PagoDeuda> findAllByDebtIdAndActiveTrue(Long debtId);
     Optional<PagoDeuda> findByIdAndDebtIdAndActiveTrue(Long id, Long debtId);
     boolean existsByDebtIdAndActiveTrue(Long debtId);
 }
