@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +33,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -144,7 +147,7 @@ fun AddBudgetScreen(
     val expenseCategories = categories.filter { it.type == "EXPENSE" }
     val selectedCategory = expenseCategories.firstOrNull { it.id == selectedCategoryId }
     val montoValue = parseMoneyInput(monto)
-    val isFormValid = nombre.isNotBlank() && montoValue != null && montoValue > 0.0 && (!esGasto || selectedCategoryId != null)
+    val isFormValid = nombre.isNotBlank() && montoValue != null && montoValue > 0.0
     val periodValue = valorPeriodo.toLongOrNull()?.coerceAtLeast(1L) ?: 1L
     val periodLabel = budgetPeriodLabel(tipoPeriodo, periodValue)
     val endDate = remember(fechaInicio, periodValue, tipoPeriodo) {
@@ -209,7 +212,7 @@ fun AddBudgetScreen(
                 fechaInicio = fechaInicio.format(DateTimeFormatter.ISO_LOCAL_DATE),
                 color = colorHex,
                 esGasto = esGasto,
-                incluirTodasLasTransacciones = if (esGasto) false else incluirTodasLasTransacciones,
+                incluirTodasLasTransacciones = if (esGasto) selectedCategoryId == null else incluirTodasLasTransacciones,
                 categoryId = if (esGasto) selectedCategoryId else null
             )
         } else {
@@ -221,7 +224,7 @@ fun AddBudgetScreen(
                 fechaInicio = fechaInicio.format(DateTimeFormatter.ISO_LOCAL_DATE),
                 color = colorHex,
                 esGasto = esGasto,
-                incluirTodasLasTransacciones = if (esGasto) false else incluirTodasLasTransacciones,
+                incluirTodasLasTransacciones = if (esGasto) selectedCategoryId == null else incluirTodasLasTransacciones,
                 categoryId = if (esGasto) selectedCategoryId else null
             )
         }
@@ -824,13 +827,13 @@ private fun BudgetCategorySelector(
 ) {
     PremiumSectionCard {
         Text(
-            text = "Categoría del presupuesto",
+            text = "Categoría del presupuesto (opcional)",
             color = AddBudgetPalette.TextPrimary,
             fontSize = 18.sp,
             fontWeight = FontWeight.ExtraBold
         )
         Text(
-            text = "Las transacciones creadas desde este presupuesto usarán esta categoría.",
+            text = "Selecciona una categoría para fijarla; si la dejas vacía podrás guardar el presupuesto igual.",
             color = AddBudgetPalette.TextSecondary,
             fontSize = 13.sp,
             lineHeight = 18.sp
@@ -1109,35 +1112,49 @@ private fun SaveBudgetBottomBar(
                 .padding(horizontal = 18.dp, vertical = 12.dp)
         ) {
             val shape = RoundedCornerShape(999.dp)
-            Box(
+            Button(
+                onClick = onClick,
+                enabled = enabled,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(62.dp)
-                    .clip(shape)
-                    .background(
-                        if (enabled) {
-                            Brush.horizontalGradient(listOf(AddBudgetPalette.Lavender, accentColor))
-                        } else {
-                            Brush.horizontalGradient(listOf(AddBudgetPalette.ElevatedCard, AddBudgetPalette.Card))
-                        }
-                    )
-                    .border(
-                        BorderStroke(1.dp, if (enabled) AddBudgetPalette.Lavender.copy(alpha = 0.78f) else AddBudgetPalette.Border),
-                        shape
-                    )
-                    .clickable(enabled = enabled) { onClick() },
-                contentAlignment = Alignment.Center
+                    .height(62.dp),
+                shape = shape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    contentColor = AddBudgetPalette.TextPrimary,
+                    disabledContentColor = AddBudgetPalette.TextSecondary
+                ),
+                contentPadding = PaddingValues(0.dp)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = AddBudgetPalette.TextPrimary, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(
-                        text = text,
-                        color = if (enabled) AddBudgetPalette.TextPrimary else AddBudgetPalette.TextSecondary,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(shape)
+                        .background(
+                            if (enabled) {
+                                Brush.horizontalGradient(listOf(AddBudgetPalette.Lavender, accentColor))
+                            } else {
+                                Brush.horizontalGradient(listOf(AddBudgetPalette.ElevatedCard, AddBudgetPalette.Card))
+                            }
+                        )
+                        .border(
+                            BorderStroke(1.dp, if (enabled) AddBudgetPalette.Lavender.copy(alpha = 0.78f) else AddBudgetPalette.Border),
+                            shape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(color = AddBudgetPalette.TextPrimary, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(
+                            text = text,
+                            color = if (enabled) AddBudgetPalette.TextPrimary else AddBudgetPalette.TextSecondary,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         }
