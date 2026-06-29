@@ -573,20 +573,28 @@ fun TransactionsTabScreen(
     val today = LocalDate.now()
     val months = listOf("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre")
     val currentMonthIndex = today.monthValue - 1
-    val visibleMonthIndices = remember(currentMonthIndex) {
-        (-2..2).map { offset -> (currentMonthIndex + offset + months.size) % months.size }
+    val availableYears = remember(transactions, today.year) {
+        (transactions.mapNotNull { parseTransactionDate(it)?.year } + today.year)
+            .distinct()
+            .sortedDescending()
     }
-    var selectedMonthIndex by remember { mutableIntStateOf(currentMonthIndex) }
+    var selectedYear by remember { mutableStateOf<Int?>(today.year) }
+    var selectedMonthIndex by remember { mutableStateOf<Int?>(currentMonthIndex) }
     var filterState by remember { mutableStateOf(TransactionFilterState()) }
     var sortOption by remember { mutableStateOf(TransactionSortOption.DATE_DESC) }
     var showFilterSheet by remember { mutableStateOf(false) }
 
-    val monthTransactions = transactions.filter { transaction ->
+    val periodTransactions = transactions.filter { transaction ->
         val date = parseTransactionDate(transaction)
-        date?.monthValue == selectedMonthIndex + 1 && date.year == today.year
+        when {
+            date == null -> false
+            selectedYear == null -> true
+            selectedMonthIndex == null -> date.year == selectedYear
+            else -> date.year == selectedYear && date.monthValue == selectedMonthIndex!! + 1
+        }
     }
 
-    val filteredTransactions = monthTransactions.filter { transaction ->
+    val filteredTransactions = periodTransactions.filter { transaction ->
         transaction.matchesTransactionFilters(filterState, allCategories)
     }
 
@@ -638,11 +646,20 @@ fun TransactionsTabScreen(
             }
 
             item {
-                TransactionsMonthSelector(
+                TransactionsPeriodSelector(
                     months = months,
-                    visibleMonthIndices = visibleMonthIndices,
+                    availableYears = availableYears,
+                    selectedYear = selectedYear,
                     selectedMonthIndex = selectedMonthIndex,
-                    onMonthSelected = { selectedMonthIndex = it }
+                    onShowAllSelected = {
+                        selectedYear = null
+                        selectedMonthIndex = null
+                    },
+                    onYearSelected = { year ->
+                        selectedYear = year
+                        selectedMonthIndex = null
+                    },
+                    onMonthSelected = { monthIndex -> selectedMonthIndex = monthIndex.takeIf { it >= 0 } }
                 )
             }
 
@@ -662,7 +679,7 @@ fun TransactionsTabScreen(
                         message = if (filterState.hasActiveFilters) {
                             "No hay transacciones con esos filtros."
                         } else {
-                            "No hay transacciones en este mes."
+                            "No hay transacciones para este período."
                         }
                     )
                 }
@@ -718,7 +735,7 @@ private fun TransactionsHeader(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "Movimientos y filtros del mes",
+                text = "Movimientos, períodos y filtros",
                 color = TransactionsPalette.TextSecondary,
                 fontSize = 13.sp,
                 maxLines = 1,
@@ -736,23 +753,58 @@ private fun TransactionsHeader(
 }
 
 @Composable
-private fun TransactionsMonthSelector(
+private fun TransactionsPeriodSelector(
     months: List<String>,
-    visibleMonthIndices: List<Int>,
-    selectedMonthIndex: Int,
+    availableYears: List<Int>,
+    selectedYear: Int?,
+    selectedMonthIndex: Int?,
+    onShowAllSelected: () -> Unit,
+    onYearSelected: (Int) -> Unit,
     onMonthSelected: (Int) -> Unit
 ) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(visibleMonthIndices) { monthIndex ->
-            MonthPill(
-                text = months[monthIndex],
-                selected = selectedMonthIndex == monthIndex,
-                onClick = { onMonthSelected(monthIndex) }
-            )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item {
+                MonthPill(
+                    text = "Todas",
+                    selected = selectedYear == null,
+                    onClick = onShowAllSelected
+                )
+            }
+            items(availableYears) { year ->
+                MonthPill(
+                    text = year.toString(),
+                    selected = selectedYear == year,
+                    onClick = { onYearSelected(year) }
+                )
+            }
+        }
+
+        if (selectedYear != null) {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item {
+                    MonthPill(
+                        text = "Todo el año",
+                        selected = selectedMonthIndex == null,
+                        onClick = { onMonthSelected(-1) }
+                    )
+                }
+                items(months.indices.toList()) { monthIndex ->
+                    MonthPill(
+                        text = months[monthIndex],
+                        selected = selectedMonthIndex == monthIndex,
+                        onClick = { onMonthSelected(monthIndex) }
+                    )
+                }
+            }
         }
     }
 }

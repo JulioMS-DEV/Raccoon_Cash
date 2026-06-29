@@ -111,6 +111,7 @@ class BudgetsViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             _isLoading.value = true
+            _error.value = null
             try {
                 val request = PresupuestoSolicitud(
                     nombre = nombre,
@@ -123,7 +124,7 @@ class BudgetsViewModel : ViewModel() {
                     incluirTodasLasTransacciones = if (esGasto && categoryId != null) false else incluirTodasLasTransacciones
                 )
                 val budget = repository.createBudget(request)
-                syncBudgetCategoryLimit(budget.id, if (esGasto) categoryId else null, monto)
+                syncBudgetCategoryLimitIfNeeded(budget.id, if (esGasto) categoryId else null, monto)
                 _operationSuccess.value = true
                 loadBudgets()
             } catch (e: Exception) {
@@ -148,6 +149,7 @@ class BudgetsViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             _isLoading.value = true
+            _error.value = null
             try {
                 val request = PresupuestoSolicitud(
                     nombre = nombre,
@@ -160,7 +162,7 @@ class BudgetsViewModel : ViewModel() {
                     incluirTodasLasTransacciones = if (esGasto && categoryId != null) false else incluirTodasLasTransacciones
                 )
                 repository.updateBudget(id, request)
-                syncBudgetCategoryLimit(id, if (esGasto) categoryId else null, monto)
+                syncBudgetCategoryLimitIfNeeded(id, if (esGasto) categoryId else null, monto)
                 _operationSuccess.value = true
                 loadBudgets()
             } catch (e: Exception) {
@@ -184,6 +186,17 @@ class BudgetsViewModel : ViewModel() {
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    private suspend fun syncBudgetCategoryLimitIfNeeded(budgetId: Long, categoryId: Long?, amountLimit: Double) {
+        if (categoryId == null) return
+
+        try {
+            syncBudgetCategoryLimit(budgetId, categoryId, amountLimit)
+        } catch (e: Exception) {
+            // The budget itself is already saved; category limits are a secondary association.
+            e.printStackTrace()
         }
     }
 
