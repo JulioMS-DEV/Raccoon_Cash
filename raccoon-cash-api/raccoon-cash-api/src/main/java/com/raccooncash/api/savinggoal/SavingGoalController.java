@@ -2,6 +2,7 @@ package com.raccooncash.api.savinggoal;
 
 import com.raccooncash.api.transaccion.TransaccionRespuesta;
 import com.raccooncash.api.transaccion.TransaccionServicio;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,21 +33,16 @@ public class SavingGoalController {
     }
 
     @PostMapping
-    public SavingGoal createSavingGoal(@RequestHeader("X-Usuario-Id") Long usuarioId,
-                                       @RequestBody SavingGoal savingGoal) {
-        return savingGoalService.createSavingGoal(usuarioId, savingGoal);
+    public ResponseEntity<SavingGoalResponse> createSavingGoal(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                               @Valid @RequestBody SavingGoal savingGoal) {
+        return ResponseEntity.ok(savingGoalService.createSavingGoal(usuarioId, savingGoal));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<SavingGoal> updateSavingGoal(@RequestHeader("X-Usuario-Id") Long usuarioId,
-                                                       @PathVariable Long id,
-                                                       @RequestBody SavingGoal savingGoalDetails) {
-        try {
-            SavingGoal updatedSavingGoal = savingGoalService.updateSavingGoal(usuarioId, id, savingGoalDetails);
-            return ResponseEntity.ok(updatedSavingGoal);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<SavingGoalResponse> updateSavingGoal(@RequestHeader("X-Usuario-Id") Long usuarioId,
+                                                               @PathVariable Long id,
+                                                               @Valid @RequestBody SavingGoal savingGoalDetails) {
+        return ResponseEntity.ok(savingGoalService.updateSavingGoal(usuarioId, id, savingGoalDetails));
     }
 
     @DeleteMapping("/{id}")

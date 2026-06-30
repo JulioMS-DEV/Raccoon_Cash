@@ -1,6 +1,7 @@
 package ni.edu.uam.raccooncash.data.remote
 
 import android.content.Context
+import android.util.Log
 import ni.edu.uam.raccooncash.data.session.SessionManager
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -11,6 +12,7 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
     private const val BASE_URL = "https://raccoon-cash-api.onrender.com/api/"
+    private const val DebtPaymentLogTag = "DebtPayment"
     private var sessionManager: SessionManager? = null
 
     fun initialize(context: Context) {
@@ -28,6 +30,9 @@ object RetrofitClient {
         val path = originalRequest.url.encodedPath
         val isPublicEndpoint = path.startsWith("/api/auth") || path.startsWith("/api/categories")
         val usuarioId = sessionManager?.getUsuarioId()
+        if (path.contains("/api/debts") && path.contains("/payments")) {
+            Log.d(DebtPaymentLogTag, "Interceptor path=$path, usuarioId=$usuarioId")
+        }
 
         val request = if (!isPublicEndpoint && usuarioId != null) {
             originalRequest.newBuilder()

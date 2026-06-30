@@ -1,6 +1,7 @@
 package ni.edu.uam.raccooncash.ui.debts
 
 import android.app.DatePickerDialog
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -81,6 +82,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -121,6 +124,8 @@ private object DebtsPalette {
     val TextPrimary = Color.White
     val TextSecondary = Color(0xFF9CA3AF)
 }
+
+private const val DebtPaymentLogTag = "DebtPayment"
 
 private data class DebtVisualState(
     val label: String,
@@ -857,6 +862,7 @@ fun DebtDetailsScreen(
     onPaymentChanged: () -> Unit,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val debt by viewModel.selectedDebt.collectAsState()
     val payments by viewModel.payments.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -881,6 +887,7 @@ fun DebtDetailsScreen(
 
     LaunchedEffect(error) {
         error?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
         }
@@ -998,7 +1005,9 @@ fun AddDebtPaymentScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var amount by remember(debt.id) { mutableStateOf(formatEditableMoney(debt.remainingAmount)) }
+    val amountFocusRequester = remember { FocusRequester() }
+    val amountState = remember(debt.id) { mutableStateOf("") }
+    val amount = amountState.value
     var selectedDate by remember(debt.id) { mutableStateOf(LocalDate.now()) }
     var selectedAccountId by remember(debt.id, accounts) {
         mutableStateOf(accounts.firstOrNull { it.id == debt.accountId }?.id ?: accounts.firstOrNull()?.id)
@@ -1007,25 +1016,80 @@ fun AddDebtPaymentScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadAccounts()
+        amountFocusRequester.requestFocus()
     }
 
     LaunchedEffect(error) {
         error?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
         }
     }
 
-    val amountValue = parseMoneyInput(amount)
+    fun parsePaymentAmount(rawValue: String): Double? {
+        val trimmed = rawValue.trim()
+        return parseMoneyInput(trimmed)
+            ?: parseMoneyInput(trimmed.filter { char -> char.isDigit() || char == '.' || char == ',' })
+    }
+
+    val rawAmount = amount.trim()
+    val amountValue = parsePaymentAmount(rawAmount)
     val selectedAccount = accounts.firstOrNull { it.id == selectedAccountId }
     val currencySymbol = selectedAccount?.currency ?: "C$"
     val isPaymentReceived = debt.type != "I_OWE"
     val accentColor = if (isPaymentReceived) DebtsPalette.Mint else DebtsPalette.Coral
     val screenTitle = if (isPaymentReceived) "Registrar pago recibido" else "Registrar pago realizado"
     val amountLabel = if (isPaymentReceived) "Monto recibido" else "Monto pagado"
-    val categoryName = "Pagos"
+    val categoryName = if (isPaymentReceived) "Pagos" else "Deudas"
     val transactionType = if (isPaymentReceived) "Ingreso" else "Gasto"
-    val isFormValid = amountValue != null && amountValue > 0.0 && selectedAccountId != null
+    val pendingAmount = debt.remainingAmount.coerceAtLeast(0.0)
+    val debtIsPaid = debt.status == "PAID"
+    val debtIsCancelled = debt.status == "CANCELLED"
+    val amountParseError = rawAmount.isNotBlank() && amountValue == null
+    val amountExceedsPending = amountValue != null && amountValue > pendingAmount
+    val amountExceedsAccountBalance = amountValue != null &&
+        !isPaymentReceived &&
+        selectedAccount != null &&
+        amountValue > selectedAccount.currentBalance
+    val amountSupportingText = when {
+        debtIsPaid -> "Esta deuda ya está pagada."
+        debtIsCancelled -> "Esta deuda está cancelada."
+        amountParseError -> "Ingresa un monto válido, por ejemplo 200 o 200.50."
+        amountExceedsPending -> "El abono no puede ser mayor al pendiente (${formatCurrencyAmount(pendingAmount, currencySymbol)})."
+        amountExceedsAccountBalance -> "La cuenta seleccionada solo tiene ${formatCurrencyAmount(selectedAccount?.currentBalance ?: 0.0, currencySymbol)} disponible."
+        else -> "Pendiente: ${formatCurrencyAmount(pendingAmount, currencySymbol)}"
+    }
+    val accountSupportingText = when {
+        accounts.isEmpty() -> "Necesitas una cuenta disponible para registrar el abono."
+        selectedAccount == null -> "Selecciona la cuenta donde se registrará el movimiento."
+        !isPaymentReceived -> "El pago saldrá de esta cuenta; debe tener saldo suficiente."
+        else -> "El pago recibido entrará a esta cuenta."
+    }
+    fun paymentValidationMessage(rawValue: String, parsedAmount: Double?): String? {
+        val currentAccount = accounts.firstOrNull { it.id == selectedAccountId }
+        val paymentExceedsAccountBalance = parsedAmount != null &&
+            !isPaymentReceived &&
+            currentAccount != null &&
+            parsedAmount > currentAccount.currentBalance
+
+        return when {
+            debtIsPaid -> "Esta deuda ya está pagada."
+            debtIsCancelled -> "Esta deuda está cancelada."
+            pendingAmount <= 0.0 -> "No hay monto pendiente para abonar."
+            rawValue.isBlank() -> "Ingresa el monto del abono."
+            parsedAmount == null -> "Ingresa un monto válido, por ejemplo 200 o 200.50."
+            parsedAmount <= 0.0 -> "El abono debe ser mayor a cero."
+            parsedAmount > pendingAmount -> "El abono no puede ser mayor al monto pendiente."
+            accounts.isEmpty() -> "Necesitas una cuenta disponible para registrar el abono."
+            selectedAccountId == null -> "Selecciona la cuenta donde se registrará el movimiento."
+            paymentExceedsAccountBalance -> "Saldo insuficiente en la cuenta seleccionada."
+            else -> null
+        }
+    }
+
+    val validationMessage = paymentValidationMessage(rawAmount, amountValue)
+    val isFormValid = validationMessage == null
     val canSave = isFormValid && !isLoading
 
     fun showPaymentDatePicker() {
@@ -1039,12 +1103,27 @@ fun AddDebtPaymentScreen(
     }
 
     fun savePayment() {
-        if (!canSave) return
+        if (isLoading) return
+        val currentRawAmount = amountState.value.trim()
+        val currentAmount = parsePaymentAmount(currentRawAmount)
+        val currentValidationMessage = paymentValidationMessage(currentRawAmount, currentAmount)
+
+        Log.d(
+            DebtPaymentLogTag,
+            "savePayment debtId=${debt.id}, debtType=${debt.type}, rawAmount='$currentRawAmount', parsedAmount=$currentAmount, accountId=$selectedAccountId, validation=$currentValidationMessage"
+        )
+
+        currentValidationMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            return
+        }
+        val paymentAmount = currentAmount ?: return
+        val accountId = selectedAccountId ?: return
         viewModel.addPayment(
             debtId = debt.id,
-            amount = amountValue ?: 0.0,
+            amount = paymentAmount,
             paymentDate = selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
-            accountId = selectedAccountId ?: 0L,
+            accountId = accountId,
             notes = notes.takeIf { it.isNotBlank() },
             onCompleted = onPaymentSaved
         )
@@ -1092,6 +1171,7 @@ fun AddDebtPaymentScreen(
             SaveDebtPaymentBottomBar(
                 enabled = canSave,
                 isLoading = isLoading,
+                disabledReason = validationMessage,
                 onClick = ::savePayment
             )
         }
@@ -1126,7 +1206,13 @@ fun AddDebtPaymentScreen(
                 label = amountLabel,
                 currencySymbol = currencySymbol,
                 accentColor = accentColor,
-                onAmountChange = { if (isPotentialMoneyInput(it)) amount = it }
+                supportingText = amountSupportingText,
+                isError = amountParseError || amountExceedsPending || amountExceedsAccountBalance,
+                focusRequester = amountFocusRequester,
+                onAmountChange = { newAmount ->
+                    amountState.value = newAmount
+                    Log.d(DebtPaymentLogTag, "amount onValueChange raw='$newAmount'")
+                }
             )
 
             DebtPaymentDateCard(
@@ -1137,7 +1223,8 @@ fun AddDebtPaymentScreen(
             DebtPaymentAccountSelector(
                 accounts = accounts,
                 selectedAccountId = selectedAccountId,
-                onSelected = { selectedAccountId = it }
+                onSelected = { selectedAccountId = it },
+                supportingText = accountSupportingText
             )
 
             DebtPaymentCategoryCard(
@@ -1276,6 +1363,9 @@ private fun DebtPaymentAmountCard(
     label: String,
     currencySymbol: String,
     accentColor: Color,
+    supportingText: String,
+    isError: Boolean,
+    focusRequester: FocusRequester,
     onAmountChange: (String) -> Unit
 ) {
     val amountFontSize = when {
@@ -1284,11 +1374,14 @@ private fun DebtPaymentAmountCard(
         else -> 40.sp
     }
 
+    val borderColor = if (isError) DebtsPalette.Coral else DebtsPalette.Lavender.copy(alpha = 0.30f)
+    val supportingColor = if (isError) DebtsPalette.Coral else DebtsPalette.TextSecondary
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(30.dp),
         color = DebtsPalette.Card,
-        border = BorderStroke(1.dp, DebtsPalette.Lavender.copy(alpha = 0.30f)),
+        border = BorderStroke(1.dp, borderColor),
         shadowElevation = 10.dp
     ) {
         Column(
@@ -1311,46 +1404,42 @@ private fun DebtPaymentAmountCard(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = currencySymbol,
-                    color = accentColor,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = onAmountChange,
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 72.dp),
-                    placeholder = {
-                        Text(
-                            text = "0.00",
-                            color = DebtsPalette.TextSecondary.copy(alpha = 0.55f),
-                            fontSize = amountFontSize,
-                            fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    singleLine = true,
-                    maxLines = 1,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    textStyle = TextStyle(
-                        color = DebtsPalette.TextPrimary,
+            OutlinedTextField(
+                value = amount,
+                onValueChange = onAmountChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 72.dp)
+                    .focusRequester(focusRequester),
+                prefix = {
+                    Text(
+                        text = currencySymbol,
+                        color = accentColor,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                },
+                placeholder = {
+                    Text(
+                        text = "0.00",
+                        color = DebtsPalette.TextSecondary.copy(alpha = 0.55f),
                         fontSize = amountFontSize,
                         fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.End
-                    ),
-                    colors = debtTransparentTextFieldColors()
-                )
-            }
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                singleLine = true,
+                maxLines = 1,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                textStyle = TextStyle(
+                    color = DebtsPalette.TextPrimary,
+                    fontSize = amountFontSize,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.End
+                ),
+                colors = debtTransparentTextFieldColors()
+            )
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1361,6 +1450,12 @@ private fun DebtPaymentAmountCard(
                         ),
                         RoundedCornerShape(999.dp)
                     )
+            )
+            Text(
+                text = supportingText,
+                color = supportingColor,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
@@ -1619,6 +1714,7 @@ private fun DebtPaymentCategoryCard(
 private fun SaveDebtPaymentBottomBar(
     enabled: Boolean,
     isLoading: Boolean,
+    disabledReason: String?,
     onClick: () -> Unit
 ) {
     Surface(
@@ -1626,10 +1722,11 @@ private fun SaveDebtPaymentBottomBar(
         color = DebtsPalette.Background.copy(alpha = 0.96f),
         shadowElevation = 12.dp
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 12.dp)
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             val shape = RoundedCornerShape(999.dp)
             Box(
@@ -1651,7 +1748,7 @@ private fun SaveDebtPaymentBottomBar(
                         ),
                         shape
                     )
-                    .clickable(enabled = enabled) { onClick() },
+                    .clickable(enabled = !isLoading) { onClick() },
                 contentAlignment = Alignment.Center
             ) {
                 if (isLoading) {
@@ -1677,6 +1774,16 @@ private fun SaveDebtPaymentBottomBar(
                         )
                     }
                 }
+            }
+            if (!enabled && !isLoading && !disabledReason.isNullOrBlank()) {
+                Text(
+                    text = disabledReason,
+                    color = DebtsPalette.TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

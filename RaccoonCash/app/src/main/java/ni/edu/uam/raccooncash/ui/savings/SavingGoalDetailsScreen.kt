@@ -144,7 +144,6 @@ fun SavingGoalDetailsScreen(
     val deadlineLabel = deadlineDate?.let { formatFullGoalDate(it) } ?: "Sin fecha objetivo"
     val goalTransactions = remember(transactions, goalId) {
         transactions
-            .filter { it.savingGoalId == goalId }
             .sortedByDescending { parseMovementDateTime(it.date) ?: LocalDateTime.MIN }
     }
     val transactionCount = goalTransactions.size

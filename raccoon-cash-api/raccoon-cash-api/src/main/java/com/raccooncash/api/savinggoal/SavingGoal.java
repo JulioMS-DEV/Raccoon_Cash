@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.raccooncash.api.transaccion.Transaccion;
 import com.raccooncash.api.usuario.Usuario;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.time.LocalDate;
 import java.util.Set;
 
@@ -19,9 +22,17 @@ public class SavingGoal {
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
+    @NotBlank(message = "El nombre de la meta es obligatorio")
     private String name;
+
+    @NotNull(message = "El monto objetivo es obligatorio")
+    @Positive(message = "El monto objetivo debe ser mayor a cero")
     private Double targetAmount;
+
+    @NotNull(message = "La fecha limite es obligatoria")
     private LocalDate deadline;
+
+    @NotBlank(message = "El color es obligatorio")
     private String color;
     private String icon;
     private String currency;

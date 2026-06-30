@@ -1,5 +1,6 @@
 package com.raccooncash.api.savinggoal;
 
+import com.raccooncash.api.excepcion.RecursoNoEncontradoException;
 import com.raccooncash.api.transaccion.Transaccion;
 import com.raccooncash.api.transaccion.TransaccionRepositorio;
 import com.raccooncash.api.usuario.Usuario;
@@ -35,30 +36,34 @@ public class SavingGoalService {
                 .map(savingGoal -> convertToDto(savingGoal, usuarioId));
     }
 
-    public SavingGoal createSavingGoal(Long usuarioId, SavingGoal savingGoal) {
+    @Transactional
+    public SavingGoalResponse createSavingGoal(Long usuarioId, SavingGoal savingGoal) {
         Usuario usuario = usuarioServicio.obtenerUsuario(usuarioId);
         savingGoal.setUsuario(usuario);
-        return savingGoalRepository.save(savingGoal);
+        savingGoal.setName(savingGoal.getName().trim());
+        savingGoal.setCurrency(defaultCurrency(savingGoal.getCurrency()));
+        SavingGoal savedSavingGoal = savingGoalRepository.save(savingGoal);
+        return convertToDto(savedSavingGoal, usuarioId);
     }
 
     @Transactional
-    public SavingGoal updateSavingGoal(Long usuarioId, Long id, SavingGoal savingGoalDetails) {
+    public SavingGoalResponse updateSavingGoal(Long usuarioId, Long id, SavingGoal savingGoalDetails) {
         SavingGoal savingGoal = savingGoalRepository.findByIdAndUsuarioId(id, usuarioId)
-                .orElseThrow(() -> new RuntimeException("SavingGoal not found with id " + id));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Meta de ahorro no encontrada"));
 
-        savingGoal.setName(savingGoalDetails.getName());
+        savingGoal.setName(savingGoalDetails.getName().trim());
         savingGoal.setTargetAmount(savingGoalDetails.getTargetAmount());
         savingGoal.setDeadline(savingGoalDetails.getDeadline());
         savingGoal.setColor(savingGoalDetails.getColor());
         savingGoal.setIcon(savingGoalDetails.getIcon());
-        savingGoal.setCurrency(savingGoalDetails.getCurrency());
+        savingGoal.setCurrency(defaultCurrency(savingGoalDetails.getCurrency()));
 
-        return savingGoalRepository.save(savingGoal);
+        return convertToDto(savingGoalRepository.save(savingGoal), usuarioId);
     }
 
     public void deleteSavingGoal(Long usuarioId, Long id) {
         SavingGoal savingGoal = savingGoalRepository.findByIdAndUsuarioId(id, usuarioId)
-                .orElseThrow(() -> new RuntimeException("SavingGoal not found with id " + id));
+                .orElseThrow(() -> new RecursoNoEncontradoException("Meta de ahorro no encontrada"));
         savingGoalRepository.delete(savingGoal);
     }
 
@@ -78,8 +83,12 @@ public class SavingGoalService {
                 savingGoal.getDeadline(),
                 savingGoal.getColor(),
                 savingGoal.getIcon(),
-                savingGoal.getCurrency(),
+                defaultCurrency(savingGoal.getCurrency()),
                 transactionCount
         );
+    }
+
+    private String defaultCurrency(String currency) {
+        return currency == null || currency.isBlank() ? "C$" : currency;
     }
 }
