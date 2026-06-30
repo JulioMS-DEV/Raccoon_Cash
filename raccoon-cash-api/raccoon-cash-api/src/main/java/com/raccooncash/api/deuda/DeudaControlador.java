@@ -1,6 +1,8 @@
 package com.raccooncash.api.deuda;
 
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -20,6 +22,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/debts")
 public class DeudaControlador {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeudaControlador.class);
 
     private final DeudaServicio debtService;
 
@@ -73,8 +77,14 @@ public class DeudaControlador {
 
     @PostMapping("/{id}/payments")
     public ResponseEntity<PagoDeudaRespuesta> addPayment(@RequestHeader("X-Usuario-Id") Long usuarioId,
-                                                         @PathVariable Long id,
-                                                         @Valid @RequestBody PagoDeudaSolicitud request) {
+                                                          @PathVariable Long id,
+                                                          @Valid @RequestBody PagoDeudaSolicitud request) {
+        LOGGER.info("Debt payment request usuarioId={}, debtId={}, amount={}, paymentDate={}, accountId={}",
+                usuarioId,
+                id,
+                request.getAmount(),
+                request.getPaymentDate(),
+                request.getAccountId());
         return ResponseEntity.ok(debtService.addPayment(usuarioId, id, request));
     }
 

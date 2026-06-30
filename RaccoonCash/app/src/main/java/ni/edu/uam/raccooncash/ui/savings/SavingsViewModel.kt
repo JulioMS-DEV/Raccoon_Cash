@@ -1,5 +1,6 @@
 package ni.edu.uam.raccooncash.ui.savings
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,11 +12,17 @@ import ni.edu.uam.raccooncash.data.model.SavingGoalResponse
 import ni.edu.uam.raccooncash.data.model.TransactionRequest
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
 import ni.edu.uam.raccooncash.data.repository.RaccoonRepository
+import org.json.JSONObject
+import retrofit2.HttpException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 class SavingsViewModel : ViewModel() {
     private val repository = RaccoonRepository()
+
+    private companion object {
+        const val LogTag = "SavingsFlow"
+    }
 
     private val _savingGoals = MutableStateFlow<List<SavingGoalResponse>>(emptyList())
     val savingGoals: StateFlow<List<SavingGoalResponse>> = _savingGoals.asStateFlow()
@@ -76,7 +83,7 @@ class SavingsViewModel : ViewModel() {
         _isLoading.value = true
         try {
             _currentGoalTransactions.value = repository.getSavingGoalTransactions(goalId)
-                .filter { it.savingGoalId == goalId }
+                .map { it.withSavingGoalId(goalId) }
             _error.value = null
         } catch (e: Exception) {
             _error.value = "Error al cargar transacciones: ${e.message}"
@@ -88,7 +95,10 @@ class SavingsViewModel : ViewModel() {
     fun addSavingGoal(name: String, targetAmount: Double, deadline: String, color: String, icon: String? = null) {
         viewModelScope.launch {
             _isLoading.value = true
+            _addGoalSuccess.value = false
+            _error.value = null
             try {
+                Log.d(LogTag, "addSavingGoal input name='$name', targetAmount=$targetAmount, deadline=$deadline, color=$color, icon=$icon")
                 val request = SavingGoalRequest(
                     name = name,
                     targetAmount = targetAmount,
@@ -96,9 +106,14 @@ class SavingsViewModel : ViewModel() {
                     color = color,
                     icon = icon
                 )
-                repository.createSavingGoal(request)
-                _addGoalSuccess.value = true
+                Log.d(LogTag, "addSavingGoal request=$request")
+                val savedGoal = repository.createSavingGoal(request)
+                Log.d(LogTag, "addSavingGoal saved id=${savedGoal.id}")
                 loadSavingGoalsSuspend()
+                _addGoalSuccess.value = true
+            } catch (e: HttpException) {
+                _error.value = httpErrorMessage(e, "Error al crear meta")
+                e.printStackTrace()
             } catch (e: Exception) {
                 _error.value = "Error al crear meta: ${e.message}"
             } finally {
@@ -111,7 +126,9 @@ class SavingsViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             _addGoalSuccess.value = false // Reset before start
+            _error.value = null
             try {
+                Log.d(LogTag, "updateSavingGoal input id=$id, name='$name', targetAmount=$targetAmount, deadline=$deadline, color=$color, icon=$icon")
                 val request = SavingGoalRequest(
                     name = name,
                     targetAmount = targetAmount,
@@ -119,9 +136,13 @@ class SavingsViewModel : ViewModel() {
                     color = color,
                     icon = icon
                 )
+                Log.d(LogTag, "updateSavingGoal request=$request")
                 repository.updateSavingGoal(id, request)
                 loadSavingGoalsSuspend()
                 _addGoalSuccess.value = true // Trigger navigation
+            } catch (e: HttpException) {
+                _error.value = httpErrorMessage(e, "Error al actualizar meta")
+                e.printStackTrace()
             } catch (e: Exception) {
                 _error.value = "Error al actualizar meta: ${e.message}"
             } finally {
@@ -160,17 +181,23 @@ class SavingsViewModel : ViewModel() {
             try {
                 val request = TransactionRequest(
                     amount = amount,
-                    type = "TRANSFER", // Changed from INCOME to TRANSFER
+                    type = "TRANSFER",
                     accountId = accountId,
                     description = description,
                     notes = notes,
                     date = dateTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                     savingGoalId = goalId
                 )
-                repository.createTransaction(request)
+                Log.d(LogTag, "addTransactionToGoal request=$request")
+                val savedTransaction = repository.createTransaction(request).withSavingGoalId(goalId)
+                Log.d(LogTag, "addTransactionToGoal saved id=${savedTransaction.id}, savingGoalId=${savedTransaction.savingGoalId}")
+                _currentGoalTransactions.value = listOf(savedTransaction) + _currentGoalTransactions.value.filter { it.id != savedTransaction.id }
                 loadGoalTransactionsSuspend(goalId)
                 loadSavingGoalsSuspend()
                 _addTransactionSuccess.value = true
+            } catch (e: HttpException) {
+                _error.value = httpErrorMessage(e, "Error al registrar ahorro")
+                e.printStackTrace()
             } catch (e: Exception) {
                 _error.value = "Error al registrar ahorro: ${e.message}"
             } finally {
@@ -195,17 +222,23 @@ class SavingsViewModel : ViewModel() {
             try {
                 val request = TransactionRequest(
                     amount = amount,
-                    type = "TRANSFER", // Changed from INCOME to TRANSFER
+                    type = "TRANSFER",
                     accountId = accountId,
                     description = description,
                     notes = notes,
                     date = dateTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                     savingGoalId = goalId
                 )
-                repository.updateTransaction(transactionId, request)
+                val updatedTransaction = repository.updateTransaction(transactionId, request).withSavingGoalId(goalId)
+                _currentGoalTransactions.value = _currentGoalTransactions.value.map {
+                    if (it.id == updatedTransaction.id) updatedTransaction else it
+                }
                 loadGoalTransactionsSuspend(goalId)
                 loadSavingGoalsSuspend()
                 _addTransactionSuccess.value = true
+            } catch (e: HttpException) {
+                _error.value = httpErrorMessage(e, "Error al actualizar ahorro")
+                e.printStackTrace()
             } catch (e: Exception) {
                 _error.value = "Error al actualizar ahorro: ${e.message}"
             } finally {
@@ -228,6 +261,9 @@ class SavingsViewModel : ViewModel() {
                 loadGoalTransactionsSuspend(goalId)
                 loadSavingGoalsSuspend()
                 _addTransactionSuccess.value = true
+            } catch (e: HttpException) {
+                _error.value = httpErrorMessage(e, "Error al eliminar transacción")
+                e.printStackTrace()
             } catch (e: Exception) {
                 _error.value = "Error al eliminar transacción: ${e.message}"
             } finally {
@@ -240,5 +276,21 @@ class SavingsViewModel : ViewModel() {
     fun resetSuccess() {
         _addGoalSuccess.value = false
         _addTransactionSuccess.value = false
+    }
+
+    fun clearError() {
+        _error.value = null
+    }
+
+    private fun TransactionResponse.withSavingGoalId(goalId: Long): TransactionResponse {
+        return if (savingGoalId == goalId) this else copy(savingGoalId = goalId)
+    }
+
+    private fun httpErrorMessage(error: HttpException, fallback: String): String {
+        val message = error.response()?.errorBody()?.string()?.let { body ->
+            runCatching { JSONObject(body).optString("message") }.getOrNull()
+                ?.takeIf { it.isNotBlank() }
+        }
+        return message ?: "$fallback (${error.code()})"
     }
 }

@@ -1,5 +1,6 @@
 package ni.edu.uam.raccooncash.data.repository
 
+import android.util.Log
 import ni.edu.uam.raccooncash.data.model.*
 import ni.edu.uam.raccooncash.data.remote.RetrofitClient
 import retrofit2.HttpException
@@ -7,6 +8,10 @@ import retrofit2.Response
 
 class RaccoonRepository {
     private val apiService = RetrofitClient.apiService
+
+    private companion object {
+        const val DebtPaymentLogTag = "DebtPayment"
+    }
 
     suspend fun registrarUsuario(request: RegistroSolicitud) = apiService.registrarUsuario(request)
 
@@ -50,7 +55,10 @@ class RaccoonRepository {
 
     suspend fun getDebtPayments(id: Long) = apiService.getDebtPayments(id)
 
-    suspend fun createDebtPayment(id: Long, request: DebtPaymentRequest) = apiService.createDebtPayment(id, request)
+    suspend fun createDebtPayment(id: Long, request: DebtPaymentRequest): DebtPaymentResponse {
+        Log.d(DebtPaymentLogTag, "Repository.createDebtPayment debtId=$id, request=$request")
+        return apiService.createDebtPayment(id, request)
+    }
 
     suspend fun deleteDebtPayment(id: Long, paymentId: Long) = apiService.deleteDebtPayment(id, paymentId).ensureSuccessful()
 

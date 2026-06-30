@@ -1,6 +1,8 @@
 package ni.edu.uam.raccooncash.ui.savings
 
 import android.app.DatePickerDialog
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -63,6 +65,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,6 +80,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import ni.edu.uam.raccooncash.data.model.AccountResponse
 import ni.edu.uam.raccooncash.data.model.SavingGoalResponse
 import ni.edu.uam.raccooncash.data.model.TransactionResponse
@@ -114,6 +118,7 @@ fun AddGoalTransactionScreen(
     savingsViewModel: SavingsViewModel,
     accountsViewModel: AccountsViewModel,
     transactionToEdit: TransactionResponse? = null,
+    onSaved: () -> Unit = {},
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -122,6 +127,7 @@ fun AddGoalTransactionScreen(
     val success by savingsViewModel.addTransactionSuccess.collectAsState()
     val error by savingsViewModel.error.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     var amount by remember(transactionToEdit?.id) { mutableStateOf(formatEditableMoney(transactionToEdit?.amount)) }
     var title by remember { mutableStateOf(transactionToEdit?.description ?: "Ahorro para ${goal.name}") }
@@ -150,50 +156,109 @@ fun AddGoalTransactionScreen(
     }
 
     LaunchedEffect(accounts) {
-        if (selectedAccountId == null) {
+        if (selectedAccountId == null || accounts.none { it.id == selectedAccountId }) {
             selectedAccountId = accounts.firstOrNull()?.id
         }
     }
 
     LaunchedEffect(error) {
-        error?.let { snackbarHostState.showSnackbar(it) }
+        error?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            snackbarHostState.showSnackbar(it)
+            savingsViewModel.clearError()
+            hasSubmitted = false
+        }
     }
 
     LaunchedEffect(success) {
         if (success && hasSubmitted) {
             accountsViewModel.loadAccounts()
+            onSaved()
             savingsViewModel.resetSuccess()
             onBack()
         }
     }
 
     val amountValue = parseMoneyInput(amount)
-    val isFormValid = amountValue != null && amountValue > 0.0 && selectedAccountId != null && title.isNotBlank()
+    val selectedAccount = accounts.firstOrNull { it.id == selectedAccountId }
+    val editableCurrentAmount = if (transactionToEdit?.accountId == selectedAccount?.id) transactionToEdit?.amount ?: 0.0 else 0.0
+    val availableBalance = selectedAccount?.let { it.currentBalance + editableCurrentAmount }
+    val amountParseError = amount.isNotBlank() && amountValue == null
+    val amountExceedsAccountBalance = amountValue != null &&
+        availableBalance != null &&
+        amountValue > availableBalance
+    val amountSupportingText = when {
+        amountParseError -> "Ingresa un monto válido, por ejemplo 200 o 200.50."
+        selectedAccount == null -> "Selecciona la cuenta de origen para debitar el ahorro."
+        amountExceedsAccountBalance -> "La cuenta seleccionada solo tiene ${formatCurrencyAmount(availableBalance ?: 0.0, selectedAccount.currency, selectedAccount.decimalPrecision ?: 2)} disponible."
+        else -> "Disponible en cuenta: ${formatCurrencyAmount(availableBalance ?: 0.0, selectedAccount.currency, selectedAccount.decimalPrecision ?: 2)}"
+    }
+    val isFormValid = amountValue != null &&
+        amountValue > 0.0 &&
+        !amountExceedsAccountBalance &&
+        selectedAccountId != null &&
+        title.isNotBlank()
     val goalColor = parseGoalTransactionColor(goal.color) ?: GoalTransactionPalette.Lavender
 
+    fun showLocalError(message: String) {
+        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        scope.launch { snackbarHostState.showSnackbar(message) }
+    }
+
     fun saveMovement() {
-        if (isFormValid) {
-            hasSubmitted = true
-            if (transactionToEdit != null) {
-                savingsViewModel.updateGoalTransaction(
-                    transactionId = transactionToEdit.id,
-                    goalId = goal.id,
-                    accountId = selectedAccountId ?: 0L,
-                    amount = amountValue ?: 0.0,
-                    description = title,
-                    notes = notes,
-                    dateTime = LocalDateTime.of(selectedDate, LocalTime.now())
-                )
-            } else {
-                savingsViewModel.addTransactionToGoal(
-                    goalId = goal.id,
-                    accountId = selectedAccountId ?: 0L,
-                    amount = amountValue ?: 0.0,
-                    description = title,
-                    notes = notes,
-                    dateTime = LocalDateTime.of(selectedDate, LocalTime.now())
-                )
+        if (isLoading) return
+        val parsedAmount = parseMoneyInput(amount)
+        val account = selectedAccount
+        val accountId = selectedAccountId
+        Log.d(GoalTransactionLogTag, "saveMovement rawAmount='$amount', parsedAmount=$parsedAmount, goalId=${goal.id}, selectedAccountId=$accountId, accountFound=${account != null}, accounts=${accounts.map { it.id }}")
+
+        when {
+            amount.isBlank() -> {
+                showLocalError("Ingresa el monto del aporte.")
+                return
             }
+            parsedAmount == null -> {
+                showLocalError("Ingresa un monto válido, por ejemplo 100 o 100.50.")
+                return
+            }
+            parsedAmount <= 0.0 -> {
+                showLocalError("El monto del aporte debe ser mayor a cero.")
+                return
+            }
+            accountId == null -> {
+                showLocalError("Selecciona la cuenta de origen del ahorro.")
+                return
+            }
+            amountExceedsAccountBalance -> {
+                showLocalError("La cuenta seleccionada no tiene saldo suficiente.")
+                return
+            }
+            title.isBlank() -> {
+                showLocalError("Ingresa un título para el movimiento.")
+                return
+            }
+        }
+
+        hasSubmitted = true
+        if (transactionToEdit != null) {
+            savingsViewModel.updateGoalTransaction(
+                transactionId = transactionToEdit.id,
+                goalId = goal.id,
+                accountId = accountId,
+                amount = parsedAmount,
+                description = title,
+                notes = notes,
+                dateTime = LocalDateTime.of(selectedDate, LocalTime.now())
+            )
+        } else {
+            savingsViewModel.addTransactionToGoal(
+                goalId = goal.id,
+                accountId = accountId,
+                amount = parsedAmount,
+                description = title,
+                notes = notes,
+                dateTime = LocalDateTime.of(selectedDate, LocalTime.now())
+            )
         }
     }
 
@@ -240,6 +305,8 @@ fun AddGoalTransactionScreen(
                 currency = goal.currency,
                 amount = amount,
                 goalColor = goalColor,
+                supportingText = amountSupportingText,
+                isError = amountParseError || amountExceedsAccountBalance,
                 onAmountChange = { if (isPotentialMoneyInput(it)) amount = it }
             )
 
@@ -372,14 +439,19 @@ private fun AmountEntryCard(
     currency: String,
     amount: String,
     goalColor: Color,
+    supportingText: String,
+    isError: Boolean,
     onAmountChange: (String) -> Unit
 ) {
+    val borderColor = if (isError) GoalTransactionPalette.Coral else goalColor.copy(alpha = 0.34f)
+    val supportingColor = if (isError) GoalTransactionPalette.Coral else GoalTransactionPalette.TextSecondary
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(30.dp),
         colors = CardDefaults.cardColors(containerColor = GoalTransactionPalette.ElevatedCard),
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
-        border = BorderStroke(1.dp, goalColor.copy(alpha = 0.34f))
+        border = BorderStroke(1.dp, borderColor)
     ) {
         Column(
             modifier = Modifier
@@ -468,9 +540,17 @@ private fun AmountEntryCard(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
             }
+            Text(
+                text = supportingText,
+                color = supportingColor,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
+
+private const val GoalTransactionLogTag = "SavingsFlow"
 
 @Composable
 private fun DateSelectionCard(
@@ -545,13 +625,29 @@ private fun AccountSelectionSection(
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold
         )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(accounts, key = { it.id }) { account ->
-                PremiumGoalAccountChip(
-                    account = account,
-                    isSelected = selectedAccountId == account.id,
-                    onClick = { onAccountSelected(account.id) }
+        if (accounts.isEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                color = GoalTransactionPalette.Card,
+                border = BorderStroke(1.dp, GoalTransactionPalette.Border)
+            ) {
+                Text(
+                    text = "No hay cuentas disponibles para registrar el ahorro.",
+                    color = GoalTransactionPalette.TextSecondary,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(16.dp)
                 )
+            }
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(accounts, key = { it.id }) { account ->
+                    PremiumGoalAccountChip(
+                        account = account,
+                        isSelected = selectedAccountId == account.id,
+                        onClick = { onAccountSelected(account.id) }
+                    )
+                }
             }
         }
     }
@@ -804,7 +900,7 @@ private fun GoalTransactionSaveBar(
                     ),
                     RoundedCornerShape(999.dp)
                 )
-                .clickable { onClick() },
+                .clickable(enabled = !isLoading) { onClick() },
             contentAlignment = Alignment.Center
         ) {
             if (isLoading) {

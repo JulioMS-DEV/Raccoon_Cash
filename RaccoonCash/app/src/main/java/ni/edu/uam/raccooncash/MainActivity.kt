@@ -419,6 +419,12 @@ class MainActivity : ComponentActivity() {
                                     savingsViewModel = savingsViewModel,
                                     accountsViewModel = accountsViewModel,
                                     transactionToEdit = editingGoalTransaction,
+                                    onSaved = {
+                                        accountsViewModel.loadAccounts()
+                                        transactionsViewModel.refreshInitialData()
+                                        savingsViewModel.loadSavingGoals()
+                                        savingsViewModel.loadGoalTransactions(goal.id)
+                                    },
                                     onBack = { currentScreen = "saving_goal_details" }
                                 )
                             }

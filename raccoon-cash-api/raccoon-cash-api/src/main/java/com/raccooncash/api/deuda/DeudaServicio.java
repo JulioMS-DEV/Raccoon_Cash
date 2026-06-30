@@ -12,6 +12,8 @@ import com.raccooncash.api.transaccion.Transaccion;
 import com.raccooncash.api.transaccion.TransaccionRepositorio;
 import com.raccooncash.api.usuario.Usuario;
 import com.raccooncash.api.usuario.UsuarioServicio;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class DeudaServicio {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DeudaServicio.class);
 
     private final DeudaRepositorio debtRepository;
     private final PagoDeudaRepositorio paymentRepository;
@@ -160,12 +164,23 @@ public class DeudaServicio {
 
     @Transactional
     public PagoDeudaRespuesta addPayment(Long usuarioId, Long debtId, PagoDeudaSolicitud request) {
+        LOGGER.info("Validating debt payment usuarioId={}, debtId={}, amount={}, accountId={}",
+                usuarioId,
+                debtId,
+                request.getAmount(),
+                request.getAccountId());
         validatePaymentRequest(request);
         Deuda debt = findActiveDebt(usuarioId, debtId);
         ensureDebtAllowsPayments(debt);
 
         Cuenta account = findActiveAccount(usuarioId, request.getAccountId());
         BigDecimal amount = money(request.getAmount());
+        LOGGER.info("Applying debt payment debtId={}, debtType={}, amount={}, remainingBefore={}, accountId={}",
+                debtId,
+                debt.getType(),
+                amount,
+                debt.getRemainingAmount(),
+                account.getId());
         if (amount.compareTo(safeAmount(debt.getRemainingAmount())) > 0) {
             throw new SolicitudIncorrectaException("El pago no puede ser mayor que el monto pendiente");
         }

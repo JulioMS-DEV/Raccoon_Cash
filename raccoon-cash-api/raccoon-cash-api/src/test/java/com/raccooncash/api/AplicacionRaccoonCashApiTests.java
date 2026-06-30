@@ -436,6 +436,52 @@ class AplicacionRaccoonCashApiTests {
     }
 
     @Test
+    void creatingSavingGoalAndAdding100UpdatesGoalListProgress() throws Exception {
+        Long accountId = createAccount();
+
+        MvcResult goalResult = perform(post("/api/saving-goals")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Laptop",
+                                  "targetAmount": 1000,
+                                  "deadline": "2026-12-31",
+                                  "color": "#8B5CF6",
+                                  "icon": "💻",
+                                  "currency": "C$"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Laptop"))
+                .andExpect(jsonPath("$.currentAmount").value(0))
+                .andExpect(jsonPath("$.transactionCount").value(0))
+                .andReturn();
+
+        Number goalId = JsonPath.read(goalResult.getResponse().getContentAsString(), "$.id");
+
+        perform(post("/api/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "description": "Ahorro para Laptop",
+                                  "amount": 100,
+                                  "type": "TRANSFER",
+                                  "date": "2026-06-24T10:00:00",
+                                  "accountId": %d,
+                                  "savingGoalId": %d
+                                }
+                                """.formatted(accountId, goalId.longValue())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.savingGoalId").value(goalId.longValue()));
+
+        perform(get("/api/saving-goals"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(goalId.longValue()))
+                .andExpect(jsonPath("$[0].currentAmount").value(100))
+                .andExpect(jsonPath("$[0].transactionCount").value(1));
+    }
+
+    @Test
     void createDebtsCreatesInitialTransactionsAndUpdatesAccountBalance() throws Exception {
         Long accountId = createAccount();
 
@@ -676,6 +722,34 @@ class AplicacionRaccoonCashApiTests {
     }
 
     @Test
+    void decimalPaymentForIOweUpdatesDebtAndPaymentHistory() throws Exception {
+        Long accountId = createAccount();
+        Long debtId = createDebt(accountId, "Juan", "I_OWE", 500, "2026-06-30");
+
+        perform(post("/api/debts/{id}/payments", debtId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "amount": 100.50,
+                                  "paymentDate": "2026-06-25",
+                                  "accountId": %d
+                                }
+                                """.formatted(accountId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amount").value(100.50));
+
+        perform(get("/api/debts/{id}", debtId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paidAmount").value(100.50))
+                .andExpect(jsonPath("$.remainingAmount").value(399.50))
+                .andExpect(jsonPath("$.status").value("PARTIALLY_PAID"));
+
+        perform(get("/api/debts/{id}/payments", debtId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].amount").value(100.50));
+    }
+
+    @Test
     void completePaymentForIOweMarksDebtAsPaidAndRejectsFurtherPayments() throws Exception {
         Long accountId = createAccount();
         Long debtId = createDebt(accountId, "Juan", "I_OWE", 300, "2026-06-30");
@@ -743,6 +817,40 @@ class AplicacionRaccoonCashApiTests {
     }
 
     @Test
+    void partialPaymentForOwedToMeReducesPendingDebtAppearsInHistoryAndList() throws Exception {
+        Long accountId = createAccount();
+        Long debtId = createDebt(accountId, "Carlos", "OWED_TO_ME", 300, "2026-07-05");
+
+        perform(post("/api/debts/{id}/payments", debtId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "amount": 100,
+                                  "paymentDate": "2026-06-25",
+                                  "accountId": %d
+                                }
+                                """.formatted(accountId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.debtId").value(debtId))
+                .andExpect(jsonPath("$.amount").value(100));
+
+        perform(get("/api/debts/{id}", debtId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paidAmount").value(100))
+                .andExpect(jsonPath("$.remainingAmount").value(200))
+                .andExpect(jsonPath("$.status").value("PARTIALLY_PAID"));
+
+        perform(get("/api/debts/{id}/payments", debtId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].amount").value(100));
+
+        perform(get("/api/debts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(debtId))
+                .andExpect(jsonPath("$[0].remainingAmount").value(200));
+    }
+
+    @Test
     void invalidDebtPaymentsReturnBadRequest() throws Exception {
         Long accountId = createAccount();
         Long debtId = createDebt(accountId, "Juan", "I_OWE", 100, "2026-06-30");
@@ -756,6 +864,16 @@ class AplicacionRaccoonCashApiTests {
                                 }
                                 """.formatted(accountId)))
                 .andExpect(status().isBadRequest());
+
+        perform(post("/api/debts/{id}/payments", debtId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "accountId": %d
+                                }
+                                """.formatted(accountId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("amount: El monto del pago es obligatorio"));
 
         Long lowBalanceAccountId = createAccount("Caja chica", 50);
         perform(post("/api/debts")

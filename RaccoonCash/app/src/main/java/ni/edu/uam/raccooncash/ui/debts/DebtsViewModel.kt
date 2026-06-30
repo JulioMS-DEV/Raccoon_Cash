@@ -1,5 +1,6 @@
 package ni.edu.uam.raccooncash.ui.debts
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,10 @@ import org.json.JSONObject
 import retrofit2.HttpException
 
 class DebtsViewModel : ViewModel() {
+    private companion object {
+        const val LogTag = "DebtPayment"
+    }
+
     private val repository = RaccoonRepository()
 
     private val _debts = MutableStateFlow<List<DebtResponse>>(emptyList())
@@ -224,6 +229,10 @@ class DebtsViewModel : ViewModel() {
             _operationSuccess.value = false
             _error.value = null
             try {
+                Log.d(
+                    LogTag,
+                    "ViewModel.addPayment debtId=$debtId, amount=$amount, paymentDate=$paymentDate, accountId=$accountId, notes=$notes"
+                )
                 repository.createDebtPayment(
                     debtId,
                     DebtPaymentRequest(
@@ -236,8 +245,12 @@ class DebtsViewModel : ViewModel() {
                 _operationSuccess.value = true
                 refreshAfterPayment(debtId)
                 onCompleted?.invoke()
-            } catch (e: retrofit2.HttpException) {
-                _error.value = if (e.code() == 400) {
+            } catch (e: HttpException) {
+                val message = e.response()?.errorBody()?.string()?.let { body ->
+                    runCatching { JSONObject(body).optString("message") }.getOrNull()
+                        ?.takeIf { it.isNotBlank() }
+                }
+                _error.value = message ?: if (e.code() == 400) {
                     "No se pudo registrar el pago. Revisa saldo y monto pendiente."
                 } else {
                     "Error del servidor al registrar el pago."
